@@ -65,14 +65,14 @@ running = threading.Event()
 running.set()
 
 # ----------------------------------------------------------- model hook ----
-# Chuqi's module (model/model.py). Until it exists we run on the fake anomaly.
+# Chuqi's module (sensing_ml/model.py). Until it exists we run on the fake anomaly.
 # The node must never crash because the model is missing or raises.
 anomaly_score = get_params = merge_params = read_sensor = None
 try:
     sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
-    from model.model import anomaly_score, get_params, merge_params  # noqa: F401
+    from sensing_ml.model import anomaly_score, get_params, merge_params  # noqa: F401
     try:
-        from model.model import read_sensor  # only if Chuqi exposes the sensor read too
+        from sensing_ml.model import read_sensor  # only if Chuqi exposes the sensor read too
     except ImportError:
         read_sensor = None
 except ImportError:
