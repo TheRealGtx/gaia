@@ -262,7 +262,7 @@ function buildForestDefinition(): EnvironmentDefinition {
     ["north-east-lookout", "North-east Lookout", "trail", 29, -19],
     ["west-exit", "West Trailhead", "exit", -36, 0],
     ["central-clearing", "Central Clearing", "clearing", -5, 0],
-    ["lake-trail", "Lake Trail", "trail", 18, 2],
+    ["lake-trail", "East Grove Trail", "trail", 18, 2],
     ["south-west-trail", "South-west Trail", "trail", -24, 19],
     ["south-clearing", "South Clearing", "clearing", 4, 21],
     ["east-exit", "East Trailhead", "exit", 36, 9],

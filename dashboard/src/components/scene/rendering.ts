@@ -27,3 +27,22 @@ export function calculateSceneViewOffset(panelOpen: boolean, viewportWidth: numb
   const panelWidth = Math.min(430, Math.max(310, viewportWidth * 0.32));
   return -(panelWidth + 24) / 2;
 }
+
+export function interpolateSceneViewOffset(current: number, target: number, delta: number): number {
+  if (Math.abs(target - current) < .5) return target;
+  const progress = 1 - Math.exp(-Math.max(0, delta) * 11);
+  return current + (target - current) * progress;
+}
+
+export function resolveSceneViewOffsetFrame(
+  current: number | null,
+  target: number,
+  delta: number,
+  projectionOffsetApplied: boolean,
+): { offset: number; apply: boolean } {
+  const offset = current === null ? target : interpolateSceneViewOffset(current, target, delta);
+  return {
+    offset,
+    apply: !projectionOffsetApplied || current !== offset,
+  };
+}

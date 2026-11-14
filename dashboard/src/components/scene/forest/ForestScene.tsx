@@ -72,9 +72,8 @@ export function ForestScene({ definition, showLabels = true }: { definition: Env
         const index = row * 18 + column;
         const x = -36 + column * 4.25 + Math.sin(index * 2.31) * 1.25;
         const z = -27 + row * 4.1 + Math.cos(index * 1.77) * 1.05;
-        const water = x > 11 && x < 24 && z > -8 && z < 13;
         const clearing = Math.hypot(x + 5, z) < 5.2 || Math.hypot(x - 4, z - 21) < 4.4;
-        if (water || clearing || nearTrail(x, z, definition)) continue;
+        if (clearing || nearTrail(x, z, definition)) continue;
         result.push({
           position: [x, forestElevation(x, z), z],
           scale: .68 + (index % 9) * .045,
@@ -87,7 +86,6 @@ export function ForestScene({ definition, showLabels = true }: { definition: Env
 
   return <group>
     <mesh receiveShadow geometry={geometry}><meshStandardMaterial color="#89a474" flatShading /></mesh>
-    <mesh position={[17.5, forestElevation(17.5, 3) + .18, 3]} rotation={[-Math.PI / 2, 0, -.08]}><planeGeometry args={[11, 22]} /><meshStandardMaterial color="#4ea6b8" transparent opacity={.82} /></mesh>
     <mesh position={[-5, forestElevation(-5, 0) + .1, 0]} rotation-x={-Math.PI / 2}><circleGeometry args={[5.1, 40]} /><meshStandardMaterial color="#a9b98d" /></mesh>
     <mesh position={[4, forestElevation(4, 21) + .1, 21]} rotation-x={-Math.PI / 2}><circleGeometry args={[4.3, 40]} /><meshStandardMaterial color="#a9b98d" /></mesh>
     <InstancedTrees trees={trees} />

@@ -12,13 +12,14 @@ import { useGaiaActions, useGaiaState } from "../../state/hooks";
 import { selectActiveEnvironment } from "../../state/selectors";
 import { StatusBadge } from "../ui";
 import { createHazardGradientSceneModel } from "./hazardGradientSceneModel";
+import type { CameraSyncChannel } from "../scene/cameraSync";
 
 const HazardGradientScene3D = dynamic(() => import("./HazardGradientScene3D").then((module) => module.HazardGradientScene3D), {
   ssr: false,
   loading: () => <div className="gradient-map__loading">Loading 3D sensor mesh…</div>,
 });
 
-export function HazardGradientPanel() {
+export function HazardGradientPanel({ cameraSync }: { cameraSync: CameraSyncChannel }) {
   const state = useGaiaState();
   const { dispatch } = useGaiaActions();
   const environment = selectActiveEnvironment(state);
@@ -47,12 +48,14 @@ export function HazardGradientPanel() {
         <StatusBadge status={sourceId ? "critical" : "normal"} dot={false}>{sourceId ? "Active" : "Standby"}</StatusBadge>
       </header>
       <p id="hazard-gradient-description" className="sr-only">
-        Interactive 3D sensor mesh. Drag to rotate and use the wheel or pinch gesture to zoom. Only sensor points and their active connections are shown.
+        Synchronized 3D sensor mesh. The view follows the main environment map. Only sensor points and their active connections are shown.
       </p>
       <div className="gradient-map" aria-describedby="hazard-gradient-description">
         <HazardGradientScene3D
           key={environment.definition.id}
           scene={scene}
+          cameraSync={cameraSync}
+          environmentId={environment.definition.id}
           mode={state.mode}
           maxLevel={model.maxLevel}
           sourceId={sourceId}

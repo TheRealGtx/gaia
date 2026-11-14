@@ -15,6 +15,34 @@ describe("simulation engine", () => {
     assert.equal(result.alerts.some((alert) => alert.kind === "network-confirmed"), false);
   });
 
+  it("automatically confirms a fire when repeated temperature increases reach 78 degrees", () => {
+    let result = createInitialEnvironmentState(ENVIRONMENT_BY_ID["building-a"]);
+    for (let index = 0; index < 11; index += 1) {
+      result = applySimulationAction(result, { type: "increase-temperature", sensorId: "A-02", delta: 5 });
+    }
+
+    const sensor = result.sensors.find((item) => item.id === "A-02")!;
+    assert.ok((sensor.reading.temperature ?? 0) >= 78);
+    assert.equal(sensor.status, "critical");
+    assert.equal(result.hazards.filter((hazard) => hazard.kind === "simulated-fire").length, 1);
+    assert.equal(result.alerts.filter((alert) => alert.kind === "network-confirmed").length, 1);
+  });
+
+  it("keeps increasing the source temperature without reconfirming an active fire", () => {
+    const initial = createInitialEnvironmentState(ENVIRONMENT_BY_ID["building-a"]);
+    const fire = applySimulationAction(initial, { type: "increase-temperature", sensorId: "A-02", delta: 55 });
+    const source = fire.sensors.find((item) => item.id === "A-02")!;
+    const neighbourId = source.neighbourIds[0];
+    const neighbourTemperature = fire.sensors.find((item) => item.id === neighbourId)?.reading.temperature;
+
+    const hotter = applySimulationAction(fire, { type: "increase-temperature", sensorId: "A-02", delta: 5 });
+
+    assert.equal(hotter.sensors.find((item) => item.id === "A-02")?.reading.temperature, 84);
+    assert.equal(hotter.sensors.find((item) => item.id === neighbourId)?.reading.temperature, neighbourTemperature);
+    assert.equal(hotter.hazards.filter((hazard) => hazard.kind === "simulated-fire").length, 1);
+    assert.equal(hotter.alerts.filter((alert) => alert.kind === "network-confirmed").length, 1);
+  });
+
   it("creates a local anomaly without a visual fire", () => {
     const initial = createInitialEnvironmentState(ENVIRONMENT_BY_ID["building-a"]);
     const result = applySimulationAction(initial, { type: "simulate-anomaly", sensorId: "A-04" });

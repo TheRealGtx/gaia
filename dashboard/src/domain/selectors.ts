@@ -9,6 +9,7 @@ export function selectEnvironmentMetrics(state: EnvironmentState) {
   const numericTemperatures = active
     .map((sensor) => sensor.reading.temperature)
     .filter((value): value is number => value !== null);
+  const activeLinks = state.topology.connections.filter((connection) => connection.active).length;
   return {
     activeSensors: active.length,
     offlineSensors: state.sensors.length - active.length,
@@ -16,5 +17,9 @@ export function selectEnvironmentMetrics(state: EnvironmentState) {
     averageTemperature: numericTemperatures.length
       ? numericTemperatures.reduce((total, value) => total + value, 0) / numericTemperatures.length
       : null,
+    minimumTemperature: numericTemperatures.length ? Math.min(...numericTemperatures) : null,
+    maximumTemperature: numericTemperatures.length ? Math.max(...numericTemperatures) : null,
+    activeLinks,
+    totalLinks: state.topology.connections.length,
   };
 }
