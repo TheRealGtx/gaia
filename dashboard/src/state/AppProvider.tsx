@@ -1,6 +1,6 @@
 "use client";
 
-import { createContext, useEffect, useMemo, useReducer, useRef, type ReactNode } from "react";
+import { createContext, useEffect, useMemo, useReducer, useRef, useState, type ReactNode } from "react";
 import { ENVIRONMENTS } from "../config/environments";
 import type { DataAdapter } from "../domain/adapter";
 import type { EnvironmentId } from "../domain/types";
@@ -21,22 +21,22 @@ export const GaiaActionsContext = createContext<GaiaActions | null>(null);
 export function AppProvider({ children }: { children: ReactNode }) {
   const [state, dispatch] = useReducer(appReducer, undefined, createInitialAppState);
   const adapterRef = useRef<DataAdapter | null>(null);
-  const themeInitializedRef = useRef(false);
+  const [themeInitialized, setThemeInitialized] = useState(false);
 
   useEffect(() => {
-    if (!themeInitializedRef.current) {
-      themeInitializedRef.current = true;
-      const preference = resolveThemePreference(window.localStorage.getItem("gaia-theme"));
-      const initialTheme = resolveTheme(preference, window.matchMedia("(prefers-color-scheme: dark)").matches);
-      document.documentElement.dataset.theme = initialTheme;
-      document.documentElement.style.colorScheme = initialTheme;
-      dispatch({ type: "set-theme-preference", preference, systemTheme: initialTheme });
-      return;
-    }
+    const preference = resolveThemePreference(window.localStorage.getItem("gaia-theme"));
+    const initialTheme = resolveTheme(preference, window.matchMedia("(prefers-color-scheme: dark)").matches);
+    dispatch({ type: "set-theme-preference", preference, systemTheme: initialTheme });
+    setThemeInitialized(true);
+  }, []);
+
+  useEffect(() => {
+    // Keep the pre-hydration theme until the saved preference has reached React state.
+    if (!themeInitialized) return;
     document.documentElement.dataset.theme = state.theme;
     document.documentElement.style.colorScheme = state.theme;
     window.localStorage.setItem("gaia-theme", state.themePreference);
-  }, [state.theme, state.themePreference]);
+  }, [themeInitialized, state.theme, state.themePreference]);
 
   useEffect(() => {
     if (state.themePreference !== "system") return;

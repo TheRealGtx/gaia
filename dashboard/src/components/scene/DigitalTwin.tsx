@@ -2,7 +2,7 @@
 
 import { OrbitControls } from "@react-three/drei";
 import { Canvas, useFrame, useThree } from "@react-three/fiber";
-import { Suspense, useCallback, useEffect, useRef } from "react";
+import { Component, Suspense, useCallback, useEffect, useRef, type ReactNode } from "react";
 import { PerspectiveCamera } from "three";
 import type { EnvironmentId, Vector3Tuple } from "../../domain/types";
 import { useGaiaActions, useGaiaState } from "../../state/hooks";
@@ -81,37 +81,63 @@ function SynchronizedOrbitControls({
   );
 }
 
-export function DigitalTwin({ cameraSync }: { cameraSync: CameraSyncChannel }) {
+function SceneReady({ onReady }: { onReady: () => void }) {
+  const frames = useRef(0);
+  useFrame(() => {
+    // Frame callbacks run before rendering; the second confirms a completed first frame.
+    if (++frames.current === 2) onReady();
+  });
+  return null;
+}
+
+class SceneErrorBoundary extends Component<{ children: ReactNode; onReady: () => void }, { failed: boolean }> {
+  state = { failed: false };
+
+  static getDerivedStateFromError() { return { failed: true }; }
+
+  componentDidCatch() { this.props.onReady(); }
+
+  render() {
+    return this.state.failed
+      ? <p className="scene-unavailable" role="alert">The 3D environment could not be loaded. Please reload the page or try another browser.</p>
+      : this.props.children;
+  }
+}
+
+export function DigitalTwin({ cameraSync, onReady }: { cameraSync: CameraSyncChannel; onReady: () => void }) {
   const state = useGaiaState();
   const { dispatch } = useGaiaActions();
   const { environment, bestRoute } = selectDashboard(state);
   const model = createSceneModel(environment, state.showRoutes ? bestRoute : null, state.selectedFloorId);
   return (
     <section className="digital-twin" aria-label={`Interactive 3D digital twin of ${environment.definition.name}`}>
-      <Suspense fallback={<div className="scene-loading">Loading digital twin…</div>}>
-        <Canvas key={`${environment.definition.id}-${state.cameraResetToken}`} shadows={{ type: DEFAULT_SHADOW_MAP }} dpr={[1, 1.5]} camera={{ position: environment.definition.kind === "building" ? [46, 34, 46] : [58, 46, 60], fov: 35, near: .1, far: 260 }}>
-          <SceneLayout panelOpen={state.telemetryPanelOpen} />
-          <color attach="background" args={[state.theme === "dark" ? "#070b10" : "#dce3d8"]} />
-          <ambientLight intensity={.45} />
-          <hemisphereLight args={["#dce7ed", "#626449", 1.15]} />
-          <directionalLight castShadow position={[24, 52, 28]} color="#fff1d6" intensity={2.2}
-            shadow-mapSize={[2048, 2048]} shadow-camera-left={-52} shadow-camera-right={52}
-            shadow-camera-top={44} shadow-camera-bottom={-44} shadow-camera-near={1}
-            shadow-camera-far={140} shadow-normalBias={.06} shadow-bias={-.0001} />
-          {environment.definition.kind === "building" ? <BuildingScene definition={environment.definition} floorId={state.selectedFloorId} selectedRoomId={state.selectedRoomId} onSelectRoom={(roomId) => dispatch({ type: "select-room", roomId })} /> : <ForestScene definition={environment.definition} />}
-          {state.showNetwork ? <NetworkLinks topology={{ ...environment.topology, connections: model.networkLinks }} sensors={model.sensors} selectedId={state.selectedSensorId} /> : null}
-          {model.hazards.map((hazard) => <HazardMarker key={hazard.id} hazard={hazard} />)}
-          {model.sensors.map((sensor) => <SensorMarker key={sensor.id} sensor={sensor} selected={sensor.id === state.selectedSensorId} onSelect={() => dispatch({ type: "select-sensor", sensorId: sensor.id })} />)}
-          {state.showRoutes ? <EvacuationPath points={model.routePoints} /> : null}
-          <SynchronizedOrbitControls
-            cameraSync={cameraSync}
-            environmentId={environment.definition.id}
-            minDistance={environment.definition.kind === "building" ? 24 : 32}
-            maxDistance={environment.definition.kind === "building" ? 100 : 135}
-            target={[0, environment.definition.kind === "building" ? 7.2 : 0, 0]}
-          />
-        </Canvas>
-      </Suspense>
+      <SceneErrorBoundary key={`${environment.definition.id}-${state.cameraResetToken}`} onReady={onReady}>
+        <Suspense fallback={null}>
+          <Canvas shadows={{ type: DEFAULT_SHADOW_MAP }} dpr={[1, 1.5]} camera={{ position: environment.definition.kind === "building" ? [46, 34, 46] : [58, 46, 60], fov: 35, near: .1, far: 260 }}>
+            <SceneReady onReady={onReady} />
+            <SceneLayout panelOpen={state.telemetryPanelOpen} />
+            <color attach="background" args={[state.theme === "dark" ? "#070b10" : "#dce3d8"]} />
+            <ambientLight intensity={.45} />
+            <hemisphereLight args={["#dce7ed", "#626449", 1.15]} />
+            <directionalLight castShadow position={[24, 52, 28]} color="#fff1d6" intensity={2.2}
+              shadow-mapSize={[2048, 2048]} shadow-camera-left={-52} shadow-camera-right={52}
+              shadow-camera-top={44} shadow-camera-bottom={-44} shadow-camera-near={1}
+              shadow-camera-far={140} shadow-normalBias={.06} shadow-bias={-.0001} />
+            {environment.definition.kind === "building" ? <BuildingScene definition={environment.definition} floorId={state.selectedFloorId} selectedRoomId={state.selectedRoomId} onSelectRoom={(roomId) => dispatch({ type: "select-room", roomId })} /> : <ForestScene definition={environment.definition} />}
+            {state.showNetwork ? <NetworkLinks topology={{ ...environment.topology, connections: model.networkLinks }} sensors={model.sensors} selectedId={state.selectedSensorId} /> : null}
+            {model.hazards.map((hazard) => <HazardMarker key={hazard.id} hazard={hazard} />)}
+            {model.sensors.map((sensor) => <SensorMarker key={sensor.id} sensor={sensor} selected={sensor.id === state.selectedSensorId} onSelect={() => dispatch({ type: "select-sensor", sensorId: sensor.id })} />)}
+            {state.showRoutes ? <EvacuationPath points={model.routePoints} /> : null}
+            <SynchronizedOrbitControls
+              cameraSync={cameraSync}
+              environmentId={environment.definition.id}
+              minDistance={environment.definition.kind === "building" ? 24 : 32}
+              maxDistance={environment.definition.kind === "building" ? 100 : 135}
+              target={[0, environment.definition.kind === "building" ? 7.2 : 0, 0]}
+            />
+          </Canvas>
+        </Suspense>
+      </SceneErrorBoundary>
     </section>
   );
 }
