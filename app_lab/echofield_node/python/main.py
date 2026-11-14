@@ -192,9 +192,11 @@ def show_state():
             d = UNKNOWN
         direction = 0
         esc, via, me = _state.get("escape_to"), _state.get("via"), _state.get("id")
-        if _state.get("dist") == 0:
-            pass        # I am the fire: no arrow, the sketch blinks the whole matrix
-        elif d < UNKNOWN and isinstance(me, int):
+        if d < UNKNOWN and isinstance(me, int):
+            # The hazard board points the way out too: whoever stands next to
+            # the fire needs it more than anyone. With d == 0 the sketch draws
+            # the arrow AND flashes the border; with no safer neighbour
+            # (direction stays 0) it blinks the whole matrix instead.
             if isinstance(esc, int) and esc != me:
                 direction = 1 if esc > me else -1      # toward the safest neighbour
             elif isinstance(via, int) and via != me:
