@@ -422,7 +422,7 @@ Production hardening would require device credentials, signed messages, replay p
 
 ## 15. Source-of-truth notes
 
-- `Plan.md`, handoff files, and `dashboard/docs/superpowers/` describe planning history and may not match the current working tree.
+- `START.md` is the runbook (setup, demo, troubleshooting) and `Plan.md` only Sunday's delivery plan. Older plans and handoff notes were removed on 14/11; git history keeps them.
 - Current code and tests are authoritative for counts, IDs, ports, and implemented behaviour.
 - The correct laptop unicast heartbeat port is `5200 + NODE_ID`, not `5000 + NODE_ID`.
 - The current live manifest contains three nodes, despite older dashboard documentation describing two.

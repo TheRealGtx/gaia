@@ -2,14 +2,7 @@
   <img src="dashboard/public/complete_logo.svg" style="filter:invert()" alt="Gaia — decentralized environmental intelligence" width="520">
 </p>
 
-<<<<<<< HEAD
-**To run it:** [START.md](START.md), from powering the boards to the demo.
-
-## The problem
-Wildfires are growing around the world, and the early minutes decide everything. Today's early-warning systems depend on cloud services, stable connectivity and centralized platforms, which are the things that fail during an emergency. They also tend to send raw sensor data to servers we don't control.
-=======
 <h1 align="center">Gaia</h1>
->>>>>>> 40510fa03b6a4383c68566eb3c8891d8eaf56135
 
 <p align="center">
   <strong>A distributed environmental intelligence platform that turns local sensor data into shared, resilient knowledge without requiring the cloud.</strong>
@@ -24,12 +17,7 @@ Wildfires are growing around the world, and the early minutes decide everything.
 
 ## Why Gaia exists
 
-<<<<<<< HEAD
-**3. Federated learning between neighbours**
-Different places have different microclimates (clearing, undergrowth, lakeside), so a single global model can give false alarms. Nearby nodes exchange model parameters, never raw data, and average them: each node merges only with its neighbours. A new node with no history becomes useful after a few exchanges. The model is three numbers (mean, spread, sample count), about 30 bytes sent every 15 seconds: against a reading every second, that is about 95% less traffic, and the readings themselves never leave the node. With a larger model the next step would be to send only the parameters that changed; with three numbers there is nothing left to cut.
-=======
 Environmental monitoring happens in places where connectivity, energy, and centralized infrastructure cannot always be assumed: farms, forests, protected areas, buildings, industrial sites, waterways, and remote communities. A centralized platform also creates delay and a single dependency between a physical event and the local response.
->>>>>>> 40510fa03b6a4383c68566eb3c8891d8eaf56135
 
 Gaia gives each node three capabilities: sense its surroundings, interpret its own data, and cooperate with nearby nodes. The network can recognize local changes, compare them with neighbouring conditions, build spatial gradients, reach consensus, and adapt when a node disappears. A gateway and dashboard can observe the field, but they do not own its critical behaviour.
 
@@ -187,6 +175,7 @@ npm run dev
 **Terminal 3 — actual node processes broadcasting to the gateway**
 
 ```bash
+# boards off: with real boards on the air it refuses to start (FORCE=1 overrides)
 python3 aggregate/sim.py --scenario consensus --broadcast --keep
 ```
 
@@ -211,9 +200,11 @@ NO_GEMMA=1 python3 gemma/report.py
 
 The report process listens to gateway snapshots and publishes `ai-summary` events. Gemma only rewrites the already-computed result; it does not set `dist`, `alert`, or `escape_to`.
 
+In the demo Gemma runs on the UNO Q boards themselves and `report.py` on the laptop asks the first board that answers: install, order of the boards and the memory settings are in [`gemma/README.md`](gemma/README.md).
+
 ### 5. Run the physical boards
 
-The complete UNO Q setup is documented in [`app_lab/echofield_node/README.md`](app_lab/echofield_node/README.md). Once the sketch and bridge are prepared, the three-node line is:
+Step by step, from the laptop's hotspot to the demo and what to do when something is off: [`START.md`](START.md). The complete UNO Q setup is documented in [`app_lab/echofield_node/README.md`](app_lab/echofield_node/README.md). Once the sketch and bridge are prepared, the three-node line is:
 
 ```bash
 ./app_lab/echofield_node/run_board.sh 1 2
@@ -261,20 +252,6 @@ Every node normally emits one JSON datagram per second on UDP `5005`:
 
 | Field | Meaning |
 | --- | --- |
-<<<<<<< HEAD
-| `aggregate/` | the nodes: gradient, consensus, self-healing, escape direction. Its [README](aggregate/README.md) has the contract and every setting |
-| `sensing_ml/` | the per-node anomaly model and the federated averaging |
-| `app_lab/` | the sketch on the microcontroller and the sensor app: Modulino Thermo, LEDs and LED matrix over the Arduino Bridge |
-| `gemma/` | Gemma 3 1B on the boards, and the script that turns the field into a sentence |
-| `network/` | switching the boards between a hotspot and GaiaMesh, an ad-hoc network with no access point |
-| `dashboard/` | the passive observer: a local gateway, the Live field graph and a 3D view of the field |
-
-Three more programs live in `aggregate/`: `listen.py` prints every packet on the
-network and sends nothing, `netcheck.py` says why nodes cannot hear each other,
-and `check_dashboard.py` proves the dashboard still accepts what the nodes
-actually send (with the boards off: it refuses to mix fake nodes into a live
-field).
-=======
 | `id` | Physical node ID |
 | `anomaly` | Local model score in `[0, 1]` |
 | `dist` | Hop distance from the nearest known source; `0` source, `99` unknown |
@@ -288,7 +265,6 @@ field).
 | `ts` | Source timestamp; gateway receipt time controls freshness |
 
 Unknown fields are ignored. The gateway retains the last complete model tuple and counters when a heartbeat omits them.
->>>>>>> 40510fa03b6a4383c68566eb3c8891d8eaf56135
 
 > [!NOTE]
 > Gaia does not upload a sensor dataset to a cloud service. The current demo does transmit the latest temperature and humidity on the **local LAN** for visualization, while collaborative learning exchanges compact statistics rather than stored raw history.
@@ -369,7 +345,11 @@ The detailed target architecture and missing refactors are documented in [`docs/
 | [`docs/ARCHITECTURE.md`](docs/ARCHITECTURE.md) | Detailed component, data-flow, algorithm, and runtime documentation |
 | [`docs/IMPLEMENTATION_GAP_ANALYSIS.md`](docs/IMPLEMENTATION_GAP_ANALYSIS.md) | Prioritized audit of missing, incorrect, promised, and production-readiness work |
 | [`docs/HACKATHON_PRESENTATION.md`](docs/HACKATHON_PRESENTATION.md) | Slide structure, three-minute demo/video storyboard, claims, and Q&A material |
-| [`Plan.md`](Plan.md) | Historical hackathon work plan; not the current source of truth |
+| [`network/`](network/) | Switching the boards between the laptop's hotspot and GaiaMesh, an ad-hoc network with no access point |
+| [`video/`](video/) | Narration, subtitles and timeline for the demo video (`node video/build.mjs`, macOS) |
+| [`START.md`](START.md) | Bringing the system up, the demo step by step, and troubleshooting |
+| [`HANDOFF-linux.md`](HANDOFF-linux.md) | Moving the demo to GaiaMesh with the laptop on Linux |
+| [`Plan.md`](Plan.md) | The hackathon delivery plan for Sunday |
 
 ## Verification
 
@@ -394,7 +374,8 @@ python3 aggregate/sim.py --scenario consensus
 python3 aggregate/sim.py --scenario failure
 python3 aggregate/sim.py --scenario rejoin
 python3 aggregate/sim.py --scenario coldstart
-# Platform-dependent today because gateway + nodes share UDP 5005:
+# Platform-dependent today because gateway + nodes share UDP 5005,
+# and it refuses while real boards are on the air (FORCE=1 overrides):
 python3 aggregate/check_dashboard.py
 ```
 

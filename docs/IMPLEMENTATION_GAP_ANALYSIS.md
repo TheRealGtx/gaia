@@ -4,6 +4,19 @@ This audit compares the current working tree with claims found in the root READM
 
 It is a diagnosis and implementation roadmap, not a claim that the items below have already been fixed.
 
+## Status after the evening of 14/11
+
+The analysis below is kept as written. These items were closed since, each
+verified with a test that failed before the fix and passes after it:
+
+| Item | Resolution |
+| --- | --- |
+| P0.1 `dist = 99` as an escape direction | `node.py` picks `escape_to` among neighbours with a known distance only; `gemma/report.py` names the safe side the same way and says only "move away" when none is known. The hazard board shows its arrow again (with a flashing border) since `4308681`. |
+| P0.3 malformed packets stop a node | `node.py` validates every heartbeat with the gateway's rules before it touches the field, a rejected packet never replaces a neighbour's last valid one, non-finite model parameters never reach `merge_params`, and the status line counts rejections (`rejected:N`). Tested with 10 000 malformed packets: the node keeps its gradient and its neighbours. |
+| P1.1 two-node wording | dashboard and gateway READMEs say three boards; the dashboard runbook was replaced by [`START.md`](../START.md). |
+| P1.2 historical plans read as current | the handoff notes and `dashboard/docs/superpowers/` were removed (git history keeps them); `Plan.md` is now only Sunday's delivery plan. |
+| P1.7 evidence | `extra.md` was removed; the feature it asked for (fire spreading over time) is still not implemented. |
+
 ## How to read priorities
 
 - **P0 — correctness or safety boundary:** fix before presenting the output as dependable guidance.

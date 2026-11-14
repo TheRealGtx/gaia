@@ -115,6 +115,7 @@ params = {"mu": 0.0, "sigma": 1.0, "n": 0}    # overwritten by Chuqi's get_param
 table  = {}                                   # neighbour id -> (message, last_seen)
 drops  = {}                                   # id -> messages heard but not in NEIGHBORS
 clash  = {"said": False}                      # another node using my id: say it once
+bad    = {"n": 0}                             # packets rejected as malformed
 peers  = {}                                   # id -> last {mu, sigma, n} seen from it
 lock   = threading.Lock()                     # protects state, params and table
 fake   = {"anomaly": float(os.environ.get("ANOMALY", 0.0))}   # keyboard-driven test value
@@ -516,45 +517,93 @@ def recv_loop():
     while running.is_set():
         try:
             data, _ = s.recvfrom(2048)
-            m = json.loads(data)
-        except (ValueError, OSError):               # invalid JSON or socket hiccup
+        except OSError:                             # socket hiccup
             continue
-        mid = m.get("id")
-        if not isinstance(mid, int):
-            continue                                # junk
-        if mid == NODE_ID:
-            # Mine, looped back by the broadcast - unless it came from another
-            # process, in which case two boards share an id and the whole field
-            # is quietly wrong.
-            if m.get("boot") not in (BOOT, None) and not clash["said"]:
-                clash["said"] = True
-                print("WARNING: another node is using NODE_ID=%d (boot %s, mine %s). "
-                      "Give each board its own id: the distances cannot be trusted "
-                      "until you do." % (NODE_ID, m.get("boot"), BOOT), flush=True)
-            continue
-        if mid not in NEIGHBORS:
-            # Heard, but not in my NEIGHBORS: on real boards this is the usual
-            # reason why "the others do not see the alarm". Counted and shown in
-            # the status line instead of being dropped in silence.
+        try:
+            handle_packet(data)
+        except Exception:                           # whatever it was, keep listening
             with lock:
-                drops[mid] = drops.get(mid, 0) + 1
-            continue
+                bad["n"] += 1
+
+def valid_heartbeat(m):
+    """A neighbour's heartbeat, checked before it can touch the field, or None.
+
+    Anything on the Wi-Fi can send to this port. A JSON list or a string id
+    used to raise inside recv_loop, which then died: the node kept talking and
+    stopped listening. A distance of "abc" or NaN raised inside update() and
+    crashed the node, again and again for as long as the packet kept coming.
+    The gateway already checked what it received; the node now applies the
+    same rules, and a rejected packet never replaces a neighbour's last good one.
+    """
+    if not isinstance(m, dict):
+        return None
+    mid = m.get("id")
+    dist = m.get("dist", UNKNOWN)
+    anomaly = m.get("anomaly", 0.0)
+    if isinstance(mid, bool) or not isinstance(mid, int) or mid < 0:
+        return None
+    if isinstance(dist, bool) or not isinstance(dist, int) or not 0 <= dist <= UNKNOWN:
+        return None
+    if (isinstance(anomaly, bool) or not isinstance(anomaly, (int, float))
+            or not math.isfinite(anomaly) or not 0.0 <= anomaly <= 1.0):
+        return None
+    if not isinstance(m.get("alert", False), bool):
+        return None
+    for key in ("via", "escape_to"):
+        v = m.get(key)
+        if v is not None and (isinstance(v, bool) or not isinstance(v, int)):
+            return None
+    return m
+
+def handle_packet(data):
+    """One datagram from the network: validated, then used or counted."""
+    try:
+        m = json.loads(data)
+    except ValueError:                              # not JSON, or not UTF-8
+        m = None
+    if isinstance(m, dict) and m.get("check"):
+        return                                      # a netcheck.py probe, not a node
+    m = valid_heartbeat(m)
+    if m is None:
         with lock:
-            # mu/sigma/n arrive only every PARAM_EVERY s: keep the last ones
-            # heard, so param_loop (and the status line) always see them.
-            old = table.get(mid)
-            if old and "mu" not in m:
-                for k in ("mu", "sigma", "n"):
-                    if k in old[0]:
-                        m[k] = old[0][k]
-            table[mid] = (m, time.time())
-            try:
-                # Only one heartbeat in PARAM_EVERY carries these, so they are
-                # kept aside: the last message alone is not enough to merge.
-                peers[mid] = {"mu": float(m["mu"]), "sigma": float(m["sigma"]),
-                              "n": int(m["n"])}
-            except (KeyError, TypeError, ValueError):
-                pass                                # no parameters this time
+            bad["n"] += 1
+        return
+    mid = m["id"]
+    if mid == NODE_ID:
+        # Mine, looped back by the broadcast - unless it came from another
+        # process, in which case two boards share an id and the whole field
+        # is quietly wrong.
+        if m.get("boot") not in (BOOT, None) and not clash["said"]:
+            clash["said"] = True
+            print("WARNING: another node is using NODE_ID=%d (boot %s, mine %s). "
+                  "Give each board its own id: the distances cannot be trusted "
+                  "until you do." % (NODE_ID, m.get("boot"), BOOT), flush=True)
+        return
+    if mid not in NEIGHBORS:
+        # Heard, but not in my NEIGHBORS: on real boards this is the usual
+        # reason why "the others do not see the alarm". Counted and shown in
+        # the status line instead of being dropped in silence.
+        with lock:
+            drops[mid] = drops.get(mid, 0) + 1
+        return
+    with lock:
+        # mu/sigma/n arrive only every PARAM_EVERY s: keep the last ones
+        # heard, so param_loop (and the status line) always see them.
+        old = table.get(mid)
+        if old and "mu" not in m:
+            for k in ("mu", "sigma", "n"):
+                if k in old[0]:
+                    m[k] = old[0][k]
+        table[mid] = (m, time.time())
+        try:
+            # Only one heartbeat in PARAM_EVERY carries these, so they are
+            # kept aside: the last message alone is not enough to merge.
+            mu, sigma, n = float(m["mu"]), float(m["sigma"]), int(m["n"])
+        except (KeyError, TypeError, ValueError):
+            return                                  # no parameters this time
+        # A NaN reaching merge_params would poison this node's model for good.
+        if math.isfinite(mu) and math.isfinite(sigma) and sigma >= 0 and n >= 0:
+            peers[mid] = {"mu": mu, "sigma": sigma, "n": n}
 
 # -------------------------------------------------------- aggregate core ----
 
@@ -594,9 +643,12 @@ def update():
         elif state["anomaly"] < ALERT_OFF and agreeing == 0:
             state["alert"] = False
         # --- escape direction: the alive neighbour furthest from the hazard ---
-        if nb:
-            far = max(nb, key=lambda m: int(m.get("dist", UNKNOWN)))
-            state["escape_to"] = far["id"] if int(far.get("dist", UNKNOWN)) > state["dist"] else None
+        # Only a KNOWN distance can be further: 99 means the neighbour knows of
+        # no hazard (it just rebooted, or it is cut off), never that it is safe.
+        known = [m for m in nb if int(m.get("dist", UNKNOWN)) < UNKNOWN]
+        if known:
+            far = max(known, key=lambda m: int(m["dist"]))
+            state["escape_to"] = far["id"] if int(far["dist"]) > state["dist"] else None
         else:
             state["escape_to"] = None
 
@@ -655,6 +707,7 @@ def status_line(t0):
         now = time.time()
         seen = [(nid, m, now - t) for nid, (m, t) in nb]
         ignored = dict(sorted(drops.items()))
+        rejected = bad["n"]
     parts = ["%-3d d=%-2s a=%.2f%s age=%.1fs%s" %
              (nid, m.get("dist", "?"), float(m.get("anomaly", 0)), temp_of(m), age,
               " ALERT" if m.get("alert") else "")
@@ -666,6 +719,8 @@ def status_line(t0):
     if ignored:
         # e.g. ignored:{2: 37} -> node 2 is on the air and I am throwing it away
         line += "  ignored:%s" % ignored
+    if rejected:
+        line += "  rejected:%d" % rejected       # malformed packets, not used
     return line
 
 def main(sensor=None, score=None):

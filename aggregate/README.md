@@ -115,7 +115,7 @@ All of them are environment variables, all have working defaults.
 | `SENSOR_PORT` / `SENSOR_TTL` | 5006 / 5 | the bridge, and when a reading goes stale |
 | `BCAST_REFRESH` | 10 | seconds between re-reads of the network interfaces (a board that changes network follows it) |
 
-## The other three programs
+## The other programs
 
 ```bash
 python3 sim.py --scenario consensus   # a whole field of real nodes on one laptop
@@ -128,6 +128,11 @@ python3 netcheck.py                   # why the nodes cannot hear each other
 `--broadcast` puts them on 5005 for a dashboard to watch. `netcheck.py` prints
 the interfaces, the addresses it would send to, what it hears and what that
 means — run it on every machine at once when something is silent.
+
+`python3 test_robustness.py` runs one real node on 127.0.0.1 and plays its
+neighbours and a hostile device: a neighbour at 99 is never the way out, and
+10 000 malformed packets neither stop the node nor overwrite a neighbour's last
+good state (they show as `rejected:N` in the status line).
 
 `sim.py --broadcast` and `check_dashboard.py` start nodes with ids 1, 2, 3 on
 UDP 5005, the same ids and port as the boards. With the boards on the air those

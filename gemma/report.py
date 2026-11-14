@@ -84,8 +84,11 @@ def template(nodes):
     names = ", ".join(s.get("name") for s in hot)
     agree = any(s.get("networkAlert") for s in online)
     dist = lambda s: s.get("gradientDistance") if s.get("gradientDistance") is not None else -1
-    far = max(dist(s) for s in online)
-    safe = [s.get("name") for s in online if dist(s) == far and far > 0]
+    # Only a KNOWN distance can be the safe side: 99 means the node knows of no
+    # hazard (just rebooted, or cut off), and sending people there would be a guess.
+    known = [s for s in online if 0 <= dist(s) < UNKNOWN]
+    far = max((dist(s) for s in known), default=-1)
+    safe = [s.get("name") for s in known if dist(s) == far and far > 0]
     msg = "Heat anomaly at %s. %s %s" % (
         names,
         "Neighbouring nodes agree: fire risk confirmed." if agree
