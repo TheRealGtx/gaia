@@ -9,8 +9,8 @@
   "alert": {
     "silent": [],
     "nodes": {
-      "1": {"anomaly": 1.0, "dist": 0, "via": null, "alert": true, "escape_to": 2, "temperature": 47.0, "humidity": 22.5},
-      "2": {"anomaly": 0.12, "dist": 1, "via": 1, "alert": false, "escape_to": null, "temperature": 23.8, "humidity": 46.2}
+      "1": {"anomaly": 1.0, "dist": 0, "via": null, "alert": true, "escape_to": null, "temperature": 47.0, "humidity": 22.5},
+      "2": {"anomaly": 1.0, "dist": 0, "via": null, "alert": true, "escape_to": null, "temperature": 47.0, "humidity": 22.5}
     }
   },
   "failure": {

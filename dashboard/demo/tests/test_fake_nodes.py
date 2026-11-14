@@ -26,12 +26,17 @@ class FakeNodeTests(unittest.TestCase):
             import json
             parse_udp_packet(json.dumps(payload).encode())
 
-    def test_alert_propagates_distance_and_failure_silences_only_one_node(self):
+    def test_alert_matches_two_adjacent_hot_nodes_reaching_consensus(self):
         alert = {packet["id"]: packet for packet in build_packets("alert", 1, 1001.0)}
-        self.assertEqual([alert[node_id]["dist"] for node_id in (1, 2)], [0, 1])
-        self.assertTrue(alert[1]["alert"])
-        self.assertEqual(alert[2]["via"], 1)
+        self.assertEqual(list(alert), [1, 2])
+        for node in alert.values():
+            self.assertGreater(node["anomaly"], 0.7)
+            self.assertEqual(node["dist"], 0)
+            self.assertIsNone(node["via"])
+            self.assertIsNone(node["escape_to"])
+            self.assertTrue(node["alert"])
 
+    def test_failure_silences_only_one_node_and_rejoin_restores_it(self):
         self.assertEqual([packet["id"] for packet in build_packets("failure", 2, 1002.0)], [1])
         self.assertEqual([packet["id"] for packet in build_packets("rejoin", 3, 1003.0)], [1, 2])
 

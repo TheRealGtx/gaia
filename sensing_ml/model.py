@@ -1,4 +1,4 @@
-"""EchoField node model (Chuqi).
+"""Gaia node model (Chuqi).
 
 Each node learns its own "normal" temperature (running mean + std,
 Welford's algorithm) and scores how abnormal the current reading is.

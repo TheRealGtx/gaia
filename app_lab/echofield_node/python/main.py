@@ -1,58 +1,63 @@
-"""EchoField node: Linux side of the App Lab app.
+"""Gaia node, App Lab side: the sensor client (Chuqi).
 
-Two modes, picked automatically:
+This app owns the hardware and nothing else. The same file runs on every board.
 
-  network  (normal) aggregate/node.py runs in a thread with OUR read_sensor()
-           and Chuqi's anomaly_score(); the LEDs show the network state
-           (same colours as the dashboard: 0 red, 1 amber, >=2 green, 99 blue).
-  test     if node.py cannot be imported (repo not on the board yet), or
-           GAIA_MODE=test: sensor test only, LEDs red above 30 °C.
-           The 30 °C threshold is ONLY a wiring test. Never ship it: a fixed
-           threshold is exactly what our pitch says we do not do.
+    MCU sketch  <--Bridge-->  this app (container)  <--UDP 5006-->  node.py (board host)
 
-In both modes every reading is appended to a CSV that calibrate.py reads
-(columns time,temp,hum). The full path is printed at startup.
+Once a second it reads the Modulino Thermo, sends {"temp": C, "hum": %} to
+aggregate/node.py running on the board's HOST OS, and gets that node's state
+back in the same exchange ({"dist", "alert", ...}). The LEDs show that state,
+with the same colours as the dashboard:
+
+    red    dist 0 or alert   this board is the hazard
+    amber  dist 1            one hop from the hazard
+    green  dist 2..98        far from the hazard
+    blue   dist 99           no hazard known anywhere
+    white  (dim)             the node on the host is not answering
+
+Why the node is not in here: App Lab runs this file in a container on a docker
+bridge (172.18.0.2), and a broadcast from there never reaches the Wi-Fi. So
+node.py and the model (sensing_ml/model.py) run on the host, and this app needs
+neither of them: only main.py and the sketch have to be in the App Lab app.
+NODE_ID and NEIGHBORS are set where node.py is started, not here.
+
+Every reading is also appended to a CSV for calibrate.py (columns
+time,temp,hum). The full path is printed at startup.
     RECORD=normal.csv  -> ~5 min at room temperature
-    RECORD=hazard.csv  -> ~1 min, hair dryer at a distance
+    RECORD=hazard.csv  -> ~1 min, heat source at demo distance
 
-read_sensor() stays HERE, not in sensing_ml/model.py: Bridge only exists in
-the App Lab runtime, and model.py also runs on laptops, in test_model.py and
-in calibrate.py.
+Settings (environment, all optional):
+    NODE_HOST    address of the board host seen from the container
+                 (default: this container's default gateway, else 172.18.0.1)
+    SENSOR_PORT  5006, must match node.py
+    GAIA_MODE=test   wiring check with no node: LEDs red above 30 C. The 30 C
+                 threshold is ONLY a wiring test. Never ship it: a fixed
+                 threshold is exactly what our pitch says we do not do.
 
-Per board, set in the app environment: NODE_ID and NEIGHBORS
-(1 -> "2", 2 -> "1,3", 3 -> "2"). GAIA_ROOT = repo root on the board, if it
-is not three folders above this file.
-
-UNVERIFIED (check App Lab examples / ask mentors):
-  [P1] import path `arduino.app_utils` and App.run(user_loop=...)
-  [P2] Bridge.call(name, *args) returns the sketch function's value
-  [P3] where files written here end up (container path) and how to copy them out
-  [P4] App Lab may upload only this app folder: then aggregate/ and sensing_ml/
-       are not on the board. Set GAIA_ROOT, or copy both folders next to main.py.
-  [P5] Bridge.call from two threads (node reads, loop sets pixels): ask if safe.
+Verified on a board (14/11): `arduino.app_utils`, App.run(user_loop=...),
+Bridge.call returning the sketch's value, and files landing in /app.
 """
 import csv
+import json
 import os
-import sys
-import threading
+import socket
+import struct
 import time
 
-from arduino.app_utils import App, Bridge   # [P1]
+from arduino.app_utils import App, Bridge
 
 RECORD = os.path.abspath(os.environ.get("RECORD", "readings.csv"))
-HOT = 30.0                                   # TEST MODE ONLY, see docstring
+TEST_MODE = os.environ.get("GAIA_MODE", "network") == "test"
+HOT = 30.0                       # TEST MODE ONLY, see docstring
+PORT = int(os.environ.get("SENSOR_PORT", 5006))
+NODE_SILENT = 5.0                # seconds without an answer before the LEDs say so
+UNKNOWN = 99                     # node.py: "I know of no hazard"
 
-# App Lab runs this file inside Docker (172.18.0.2): broadcasts never reach the
-# Wi-Fi. Send heartbeats to the board host instead, where
-# app_lab/board_host/udp_bridge.py relays them both ways. Must run before
-# `import node`. Per board, also set NODE_ID / NEIGHBORS here, e.g.:
-#   os.environ.setdefault("NODE_ID", "3"); os.environ.setdefault("NEIGHBORS", "2")
-os.environ.setdefault("BROADCAST", "172.18.0.1")
 
 # ---- hardware (Bridge) -----------------------------------------------------
-def _bridge_read():
+def read_sensor():
     """{"temp": C, "hum": %} straight from the MCU."""
-    return {"temp": float(Bridge.call("read_temp")),   # [P2]
+    return {"temp": float(Bridge.call("read_temp")),
             "hum": float(Bridge.call("read_hum"))}
 
 
@@ -67,70 +72,96 @@ _w = csv.writer(_f)
 if _new:
     _w.writerow(["time", "temp", "hum"])
 _t0 = time.time()
-_last = {"t": -1.0, "v": None}
 print("recording to", RECORD, flush=True)
 
 
-def read_sensor():
-    """What node.py calls (about twice a second). Records at most 1 row/s."""
-    v = _bridge_read()
-    t = round(time.time() - _t0, 2)
-    _last["v"] = v
-    if t - _last["t"] >= 1.0:
-        _last["t"] = t
-        _w.writerow([t, v["temp"], v["hum"]])
-        _f.flush()
-    return v
-
-
-# ---- network node ----------------------------------------------------------
-node = None
-if os.environ.get("GAIA_MODE", "network") != "test":
-    root = os.environ.get("GAIA_ROOT") or os.path.abspath(
-        os.path.join(os.path.dirname(os.path.abspath(__file__)), "..", "..", ".."))
-    for p in (root, os.path.join(root, "aggregate")):
-        if p not in sys.path:
-            sys.path.insert(0, p)
+# ---- the node on the board host --------------------------------------------
+def host_address():
+    """The board host as seen from this container: its default gateway."""
+    if os.environ.get("NODE_HOST"):
+        return os.environ["NODE_HOST"]
     try:
-        import node                                     # aggregate/node.py  [P4]
-        from sensing_ml.model import anomaly_score
-        threading.Thread(target=node.main,
-                         kwargs={"sensor": read_sensor, "score": anomaly_score},
-                         daemon=True).start()
-    except Exception as e:
-        node = None
-        print("node not available, TEST MODE (LED = 30 C threshold):", e, flush=True)
+        with open("/proc/net/route") as f:
+            for line in f.readlines()[1:]:
+                p = line.split()
+                if p[1] == "00000000" and int(p[3], 16) & 2:     # default route, gateway flag
+                    return socket.inet_ntoa(struct.pack("<L", int(p[2], 16)))
+    except (OSError, ValueError, IndexError):
+        pass
+    return "172.18.0.1"
+
+
+HOST = host_address()
+_sock = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
+_sock.settimeout(0.5)
+_state = {"dist": UNKNOWN, "alert": False}
+_heard = {"at": 0.0, "ever": False}
+if not TEST_MODE:
+    print("sensor client: readings -> %s:%d (node.py on the board host)" % (HOST, PORT),
+          flush=True)
+
+
+def ask_node(reading):
+    """Send one reading, take the node's state from its answer. True if it answered."""
+    try:
+        _sock.sendto(json.dumps(reading).encode(), (HOST, PORT))
+        reply = json.loads(_sock.recv(1024))
+        if not isinstance(reply, dict):
+            return False
+        _state.update(reply)
+        _heard["at"] = time.time()
+        if not _heard["ever"]:
+            _heard["ever"] = True
+            print("node %s is answering" % reply.get("id", "?"), flush=True)
+        return True
+    except (OSError, ValueError):
+        return False             # node not up (yet): keep the last state
 
 
 def colour():
-    """LED colour from the network state, same mapping as the dashboard."""
-    with node.lock:
-        d, alert = node.state["dist"], node.state["alert"]
-    if alert or d == 0:
-        return (60, 0, 0)       # red:   I am the hazard
-    if d >= node.UNKNOWN:
-        return (0, 0, 30)       # blue:  I know of no hazard
+    """LED colour from the node's state, same mapping as the dashboard."""
+    if time.time() - _heard["at"] > NODE_SILENT:
+        return (12, 12, 12)      # dim white: no node on the host
+    try:
+        d = int(_state.get("dist", UNKNOWN))
+    except (TypeError, ValueError):
+        d = UNKNOWN
+    if _state.get("alert") or d == 0:
+        return (60, 0, 0)        # red:   I am the hazard
+    if d >= UNKNOWN:
+        return (0, 0, 30)        # blue:  no hazard known
     if d == 1:
-        return (50, 35, 0)      # amber: one hop away
-    return (0, 40, 0)           # green: far from the hazard
+        return (50, 35, 0)       # amber: one hop away
+    return (0, 40, 0)            # green: far from the hazard
 
 
-# ---- App Lab loop (main thread) --------------------------------------------
+# ---- App Lab loop (main thread, the only code that touches the Bridge) -----
 def loop():
-    if node is not None:
-        set_color(*colour())                # node.py prints its own status line
-        time.sleep(0.5)
-        return
-    # TEST MODE: no network, read here and use the fixed threshold
+    start = time.time()
     try:
         v = read_sensor()
-    except Exception as e:                   # bridge hiccup: keep going
-        print("read failed:", e)
+    except Exception as e:       # bridge hiccup: keep going
+        print("read failed:", e, flush=True)
         time.sleep(1)
         return
-    print(f"{time.time() - _t0:7.1f}s  temp={v['temp']:.2f}  hum={v['hum']:.1f}", flush=True)
-    set_color(*((60, 0, 0) if v["temp"] > HOT else (0, 40, 0)))   # TEST ONLY
-    time.sleep(1)
+    t = round(start - _t0, 2)
+    _w.writerow([t, v["temp"], v["hum"]])
+    _f.flush()
+    line = "%7.1fs  temp=%.2f  hum=%.1f" % (t, v["temp"], v["hum"])
+    if TEST_MODE:
+        set_color(*((60, 0, 0) if v["temp"] > HOT else (0, 40, 0)))   # TEST ONLY
+        print(line + "  (test mode)", flush=True)
+    else:
+        ask_node(v)
+        if time.time() - _heard["at"] > NODE_SILENT:
+            line += "  | no answer from node.py at %s:%d" % (HOST, PORT)
+        else:
+            line += "  | node %s anom=%s dist=%s alert=%s" % (
+                _state.get("id", "?"), _state.get("anomaly", "?"),
+                _state.get("dist", "?"), "ON" if _state.get("alert") else "off")
+        set_color(*colour())
+        print(line, flush=True)
+    time.sleep(max(0.0, 1.0 - (time.time() - start)))
 
 
-App.run(user_loop=loop)                       # [P1]
+App.run(user_loop=loop)

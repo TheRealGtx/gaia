@@ -12,3 +12,8 @@ python3 demo/fake_nodes.py --scenario rejoin --host 127.0.0.1 --port 5005
 ```
 
 Use `--count 20` for a bounded run. The sender only produces observer heartbeats; it never sends control commands to physical nodes. Stop it before starting the Arduino broadcasts so the fake IDs do not compete with real IDs 1–2.
+
+The `alert` scenario mirrors the stage demo with `AGREE_MIN=1`: both adjacent
+nodes are hot, report `dist 0`, and raise the consensus alert. A single hot node
+still produces the visible gradient, but it cannot truthfully raise `alert`
+without an agreeing neighbour.
