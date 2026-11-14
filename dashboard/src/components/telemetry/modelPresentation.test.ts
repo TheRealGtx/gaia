@@ -63,4 +63,36 @@ describe("model parameter presentation", () => {
     assert.deepEqual(ages, ["stale · updated 12 s ago", "stale · updated 72 s ago"]);
     assert.equal(cleared, true);
   });
+
+  it("formats a simulated temperature with an adjacent disclosure chip", () => {
+    const formatTemperaturePresentation = (presentationModule as unknown as {
+      formatTemperaturePresentation?: (temperature: number | null, simulated: boolean | null | undefined) => {
+        value: string;
+        simulatedLabel: string | null;
+      };
+    }).formatTemperaturePresentation;
+    assert.equal(typeof formatTemperaturePresentation, "function");
+    if (!formatTemperaturePresentation) return;
+
+    assert.deepEqual(formatTemperaturePresentation(47, true), {
+      value: "47°C",
+      simulatedLabel: "Simulated",
+    });
+    assert.deepEqual(formatTemperaturePresentation(null, false), {
+      value: "—",
+      simulatedLabel: null,
+    });
+  });
+
+  it("describes distance 99 as no hazard only for a nominal node", () => {
+    const formatGradientDistancePresentation = (presentationModule as unknown as {
+      formatGradientDistancePresentation?: (distance: number | null, status: string) => string;
+    }).formatGradientDistancePresentation;
+    assert.equal(typeof formatGradientDistancePresentation, "function");
+    if (!formatGradientDistancePresentation) return;
+
+    assert.equal(formatGradientDistancePresentation(99, "normal"), "no hazard");
+    assert.equal(formatGradientDistancePresentation(99, "unknown"), "unknown");
+    assert.equal(formatGradientDistancePresentation(2, "normal"), "2");
+  });
 });

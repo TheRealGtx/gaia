@@ -1,6 +1,6 @@
 import assert from "node:assert/strict";
 import { describe, it } from "node:test";
-import { normalizeGatewayMessage, normalizeGatewayMessages, statusFromNetwork } from "./protocol.ts";
+import { normalizeGatewayMessage, normalizeGatewayMessages } from "./protocol.ts";
 
 describe("gateway protocol", () => {
   it("preserves the frozen UDP metrics enriched by the gateway", () => {
@@ -47,13 +47,28 @@ describe("gateway protocol", () => {
     }
   });
 
-  it("maps network distance without treating 99 as safe", () => {
-    assert.equal(statusFromNetwork(0, false, "fresh"), "critical");
-    assert.equal(statusFromNetwork(1, false, "fresh"), "warning");
-    assert.equal(statusFromNetwork(2, false, "fresh"), "normal");
-    assert.equal(statusFromNetwork(99, false, "fresh"), "unknown");
-    assert.equal(statusFromNetwork(2, true, "fresh"), "critical");
-    assert.equal(statusFromNetwork(2, false, "offline"), "offline");
+  it("preserves the gateway's whole-field status for distance 99", () => {
+    const nominal = normalizeGatewayMessage({
+      type: "sensor-reading", environmentId: "building-a",
+      sensor: {
+        id: "A-01", environmentId: "building-a", name: "Reception", position: [-12, 1.15, 7],
+        temperature: 20.4, humidity: 45, anomalyScore: 0.05, gradientDistance: 99,
+        networkAlert: false, status: "normal", connectivity: "connected", neighbourIds: ["A-02"],
+        lastUpdate: "2026-11-14T10:00:00.000Z",
+      },
+    });
+    const split = normalizeGatewayMessage({
+      type: "sensor-reading", environmentId: "building-a",
+      sensor: {
+        id: "A-01", environmentId: "building-a", name: "Reception", position: [-12, 1.15, 7],
+        temperature: 20.4, humidity: 45, anomalyScore: 0.05, gradientDistance: 99,
+        networkAlert: false, status: "unknown", connectivity: "connected", neighbourIds: ["A-02"],
+        lastUpdate: "2026-11-14T10:00:00.000Z",
+      },
+    });
+
+    assert.equal(nominal?.type === "sensor-reading" ? nominal.sensor.status : null, "normal");
+    assert.equal(split?.type === "sensor-reading" ? split.sensor.status : null, "unknown");
   });
   it("normalizes a live sensor reading", () => {
     const event = normalizeGatewayMessage({

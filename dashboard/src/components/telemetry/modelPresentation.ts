@@ -1,6 +1,13 @@
+import type { SensorStatus } from "../../domain/types.ts";
+
 export interface ModelPresentation {
   value: string;
   age: string;
+}
+
+export interface TemperaturePresentation {
+  value: string;
+  simulatedLabel: "Simulated" | null;
 }
 
 export interface ModelAgeScheduler {
@@ -14,6 +21,24 @@ const defaultScheduler: ModelAgeScheduler = {
   setInterval: (callback, delay) => globalThis.setInterval(callback, delay),
   clearInterval: (id) => globalThis.clearInterval(id as ReturnType<typeof setInterval>),
 };
+
+export function formatTemperaturePresentation(
+  temperature: number | null,
+  simulated: boolean | null | undefined,
+): TemperaturePresentation {
+  return {
+    value: temperature === null ? "—" : `${temperature}°C`,
+    simulatedLabel: simulated === true ? "Simulated" : null,
+  };
+}
+
+export function formatGradientDistancePresentation(
+  distance: number | null,
+  status: SensorStatus,
+): string {
+  if (distance === null || distance >= 99) return status === "normal" ? "no hazard" : "unknown";
+  return String(distance);
+}
 
 export function startModelAgeTicker(
   onTick: (now: Date) => void,

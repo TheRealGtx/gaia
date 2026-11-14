@@ -5,6 +5,7 @@ import dynamic from "next/dynamic";
 import {
   deriveHazardGradient,
   deriveLiveHazardGradient,
+  liveGradientStateLabel,
   selectSimulatedHazardSource,
 } from "../../domain/hazardGradient";
 import { useGaiaActions, useGaiaState } from "../../state/hooks";
@@ -27,6 +28,7 @@ export function HazardGradientPanel() {
       sensorId: sensor.id,
       distance: sensor.live?.gradientDistance ?? null,
       offline: sensor.status === "offline",
+      alert: sensor.live?.networkAlert === true,
     })), environment.topology.connections)
     : deriveHazardGradient({
       sensorIds: environment.sensors.map((sensor) => sensor.id),
@@ -58,7 +60,9 @@ export function HazardGradientPanel() {
         />
         <div className="gradient-map__controls" role="group" aria-label="Select a sensor in the 3D hazard gradient">
           {scene.nodes.map((node) => {
-            const stateLabel = node.offline ? "offline" : node.level === null ? "unreachable" : `gradient level ${node.level}`;
+            const stateLabel = state.mode === "live"
+              ? liveGradientStateLabel(node.level, node.offline, Boolean(sourceId))
+              : node.offline ? "offline" : node.level === null ? "unreachable" : `gradient level ${node.level}`;
             return (
               <button
                 key={node.sensorId}
@@ -77,7 +81,7 @@ export function HazardGradientPanel() {
       <footer className="gradient-panel__footer">
         <span><Flame size={12} /> {sourceId ? "0 source" : "No active source"}</span>
         <span className="gradient-scale" aria-hidden="true" />
-        <span>{state.mode === "live" ? "1 warning · 2+ safe · 99 unknown" : `L${Math.max(2, model.maxLevel)} outer field`}</span>
+        <span>{state.mode === "live" ? (sourceId ? "1 warning · 2+ safe · 99 unknown" : "No hazard · 99 nominal") : `L${Math.max(2, model.maxLevel)} outer field`}</span>
       </footer>
     </section>
   );

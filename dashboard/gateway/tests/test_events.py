@@ -11,10 +11,10 @@ from gateway.store import GatewayStore
 MANIFEST = load_node_manifest(Path(__file__).parents[1] / "node_manifest.json")
 
 
-def packet(node_id, dist):
+def packet(node_id, dist, timestamp=1.0):
     return parse_udp_packet(json.dumps({
         "id": node_id, "anomaly": 0.1, "dist": dist, "alert": False,
-        "temperature": 22.0, "humidity": 50.0, "ts": 1.0,
+        "temperature": 22.0, "humidity": 50.0, "ts": timestamp,
     }).encode())
 
 
@@ -29,6 +29,14 @@ class GatewayEventTests(unittest.TestCase):
         second = apply_udp_packet(store, packet(2, 2), now)
         link = next(connection for connection in second["environments"]["building-a"]["connections"] if {connection["sourceId"], connection["targetId"]} == {"A-01", "A-02"})
         self.assertTrue(link["active"])
+
+    def test_duplicate_node_timestamp_does_not_emit_another_snapshot(self):
+        store = GatewayStore(manifest=MANIFEST)
+        now = datetime(2026, 11, 14, tzinfo=timezone.utc)
+
+        self.assertIsNotNone(apply_udp_packet(store, packet(1, 2, 100.0), now))
+        self.assertIsNone(apply_udp_packet(store, packet(1, 2, 100.0), now))
+        self.assertIsNotNone(apply_udp_packet(store, packet(1, 2, 101.0), now))
 
 
 if __name__ == "__main__":

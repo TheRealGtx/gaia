@@ -12,7 +12,7 @@ def packet(**overrides):
     import json
     payload = {
         "id": 1, "anomaly": 0.2, "dist": 2, "via": 2, "alert": False,
-        "escape_to": 3, "mu": 22.0, "sigma": 1.0, "n": 24,
+        "escape_to": 2, "mu": 22.0, "sigma": 1.0, "n": 24,
         "temperature": 23.5, "humidity": 45.0, "simulated": False,
         "bytes_sent": 100, "bytes_if_raw_data": 1000, "ts": 100.0,
     }
@@ -45,15 +45,30 @@ class GatewayStoreTests(unittest.TestCase):
         self.assertEqual(sensor["id"], "A-01")
         self.assertEqual(sensor["gradientDistance"], 2)
         self.assertEqual(sensor["via"], "A-02")
-        self.assertEqual(sensor["escapeTo"], "A-03")
+        self.assertEqual(sensor["escapeTo"], "A-02")
         self.assertEqual(sensor["status"], "normal")
         self.assertEqual(sensor["sourceTimestamp"], 100.0)
 
-    def test_unknown_distance_is_grey_and_never_safe(self):
+    def test_unknown_distance_is_nominal_and_connected_without_a_hazard(self):
         store = GatewayStore(manifest=MANIFEST)
         sensor = store.update_udp_packet(packet(dist=99, escape_to=None))
-        self.assertEqual(sensor["status"], "unknown")
-        self.assertEqual(sensor["connectivity"], "unknown")
+        self.assertEqual(sensor["status"], "normal")
+        self.assertEqual(sensor["connectivity"], "connected")
+        self.assertFalse(sensor["hazardPathKnown"])
+
+    def test_snapshot_marks_an_unknown_path_only_while_a_hazard_exists(self):
+        store = GatewayStore(manifest=MANIFEST)
+        store.update_udp_packet(packet(id=1, dist=0, alert=True, via=None, escape_to=2, ts=100.0))
+        store.update_udp_packet(packet(id=2, dist=99, alert=False, via=None, escape_to=None, ts=100.0))
+
+        active = store.snapshot()["environments"]["building-a"]["sensors"]
+        self.assertEqual(active["A-01"]["status"], "critical")
+        self.assertEqual(active["A-02"]["status"], "unknown")
+        self.assertEqual(active["A-02"]["connectivity"], "connected")
+
+        store.update_udp_packet(packet(id=1, dist=2, alert=False, via=2, escape_to=None, ts=101.0))
+        cleared = store.snapshot()["environments"]["building-a"]["sensors"]
+        self.assertEqual(cleared["A-02"]["status"], "normal")
 
     def test_receipt_order_accepts_older_node_clock_after_reboot(self):
         store = GatewayStore(manifest=MANIFEST)
@@ -68,7 +83,7 @@ class GatewayStoreTests(unittest.TestCase):
         first = datetime(2026, 11, 14, 10, 0, 0, tzinfo=timezone.utc)
         store.update_udp_packet(packet(mu=22.0, sigma=1.0, n=24, bytes_sent=100, bytes_if_raw_data=1000), first)
         sensor = store.update_udp_packet(
-            packet(mu=None, sigma=None, n=None, bytes_sent=None, bytes_if_raw_data=None, temperature=24.0),
+            packet(mu=None, sigma=None, n=None, bytes_sent=None, bytes_if_raw_data=None, temperature=24.0, ts=101.0),
             first + timedelta(seconds=60),
         )
         self.assertEqual(sensor["mu"], 22.0)

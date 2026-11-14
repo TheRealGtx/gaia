@@ -9,7 +9,6 @@ import type {
   SensorStatus,
   Vector3Tuple,
 } from "../domain/types.ts";
-import type { FreshnessState } from "./freshness.ts";
 
 function record(value: unknown): value is Record<string, unknown> {
   return typeof value === "object" && value !== null && !Array.isArray(value);
@@ -41,19 +40,6 @@ function status(value: unknown): SensorStatus {
     : "stale";
 }
 
-export function statusFromNetwork(
-  distance: number | null,
-  alert: boolean | null,
-  freshness: FreshnessState,
-): SensorStatus {
-  if (freshness === "offline") return "offline";
-  if (freshness === "stale") return "stale";
-  if (alert === true || distance === 0) return "critical";
-  if (distance === 1) return "warning";
-  if (distance !== null && distance >= 2 && distance < 99) return "normal";
-  return "unknown";
-}
-
 function connectivity(value: unknown): ConnectivityState {
   return ["connected", "degraded", "offline", "unknown"].includes(String(value))
     ? value as ConnectivityState
@@ -76,7 +62,6 @@ function normalizeSensor(value: unknown, id: EnvironmentId): SensorNode | null {
   const gradientDistance = integerOrNull(value.gradientDistance);
   const networkAlert = booleanOrNull(value.networkAlert);
   const gatewayStatus = status(value.status);
-  const freshness: FreshnessState = gatewayStatus === "offline" ? "offline" : gatewayStatus === "stale" ? "stale" : "fresh";
   const rawMu = numberOrNull(value.mu);
   const rawSigma = numberOrNull(value.sigma);
   const rawN = integerOrNull(value.n);
@@ -86,9 +71,7 @@ function normalizeSensor(value: unknown, id: EnvironmentId): SensorNode | null {
     ...configured,
     name: value.name,
     position,
-    status: gradientDistance === null && networkAlert === null
-      ? gatewayStatus
-      : statusFromNetwork(gradientDistance, networkAlert, freshness),
+    status: gatewayStatus,
     connectivity: connectivity(value.connectivity),
     neighbourIds: Array.isArray(value.neighbourIds)
       ? value.neighbourIds.filter((item): item is string => typeof item === "string")

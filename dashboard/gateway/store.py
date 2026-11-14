@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+from collections import deque
 from copy import deepcopy
 from datetime import datetime, timezone
 from threading import RLock
@@ -9,10 +10,14 @@ from .protocol import NodeManifest, UdpNodePacket
 
 
 class GatewayStore:
+    _packet_history_limit = 4096
+
     def __init__(self, offline_after_seconds: int = 4, manifest: NodeManifest | None = None) -> None:
         self.offline_after_seconds = offline_after_seconds
         self.manifest = manifest
         self._environments: dict[str, dict[str, Any]] = {}
+        self._seen_packet_keys: set[tuple[int, float]] = set()
+        self._seen_packet_order: deque[tuple[int, float]] = deque()
         self._lock = RLock()
 
     def update_sensor(
@@ -47,9 +52,15 @@ class GatewayStore:
             return None
         received_at = received_at or datetime.now(timezone.utc)
         received_at_iso = received_at.isoformat().replace("+00:00", "Z")
-        status = "critical" if packet.alert or packet.dist == 0 else "warning" if packet.dist == 1 else "unknown" if packet.dist >= 99 else "normal"
-        connectivity = "unknown" if packet.dist >= 99 else "connected"
+        status = "critical" if packet.alert or packet.dist == 0 else "warning" if packet.dist == 1 else "normal"
         with self._lock:
+            packet_key = (packet.node_id, packet.ts)
+            if packet_key in self._seen_packet_keys:
+                return None
+            self._seen_packet_keys.add(packet_key)
+            self._seen_packet_order.append(packet_key)
+            if len(self._seen_packet_order) > self._packet_history_limit:
+                self._seen_packet_keys.discard(self._seen_packet_order.popleft())
             environment = self._environments.setdefault(manifest_node.environment_id, {"sensors": {}})
             previous = environment["sensors"].get(manifest_node.sensor_id, {})
             has_model_update = packet.mu is not None and packet.sigma is not None and packet.n is not None
@@ -78,7 +89,8 @@ class GatewayStore:
                 "simulated": packet.simulated,
                 "sourceTimestamp": packet.ts,
                 "status": status,
-                "connectivity": connectivity,
+                "hazardPathKnown": packet.dist < 99,
+                "connectivity": "connected",
                 "lastUpdate": received_at_iso,
                 **sticky,
             }
@@ -101,6 +113,12 @@ class GatewayStore:
     def snapshot(self) -> dict[str, Any]:
         with self._lock:
             environments = deepcopy(self._environments)
+            for environment in environments.values():
+                sensors = environment["sensors"].values()
+                if any(sensor.get("status") == "critical" for sensor in sensors):
+                    for sensor in sensors:
+                        if sensor.get("status") == "normal" and not sensor.get("hazardPathKnown", True):
+                            sensor["status"] = "unknown"
             if self.manifest:
                 for environment_id, environment in environments.items():
                     connections: list[dict[str, Any]] = []

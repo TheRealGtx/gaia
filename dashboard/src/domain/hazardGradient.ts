@@ -129,14 +129,14 @@ export function deriveHazardGradient({
 }
 
 export function deriveLiveHazardGradient(
-  sensors: Array<{ sensorId: string; distance: number | null; offline: boolean }>,
+  sensors: Array<{ sensorId: string; distance: number | null; offline: boolean; alert: boolean }>,
   connections: GradientConnectionInput[],
 ): HazardGradientModel {
   const known = new Set(sensors.map((sensor) => sensor.sensorId));
   const activeLinks = connections.filter((connection) => connection.active && known.has(connection.sourceId) && known.has(connection.targetId));
   const nodes = sensors.map((sensor) => ({
     sensorId: sensor.sensorId,
-    level: sensor.offline || sensor.distance === null || sensor.distance >= 99 ? null : sensor.distance,
+    level: sensor.offline ? null : sensor.alert ? 0 : sensor.distance === null || sensor.distance >= 99 ? null : sensor.distance,
     offline: sensor.offline,
   }));
   const finiteLevels = nodes.flatMap((node) => node.level === null ? [] : [node.level]);
@@ -155,5 +155,16 @@ export function liveGradientColor(distance: number | null, offline: boolean, has
   if (distance === 0) return "#ef4444";
   if (distance === 1) return "#f59e0b";
   return "#10b981";
+}
+
+export function liveGradientStateLabel(
+  distance: number | null,
+  offline: boolean,
+  hasActiveSource: boolean,
+): string {
+  if (offline) return "offline";
+  if (!hasActiveSource) return "nominal, no active hazard";
+  if (distance === null || distance >= 99) return "hazard path unknown";
+  return `gradient level ${distance}`;
 }
 

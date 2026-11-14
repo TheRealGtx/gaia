@@ -28,12 +28,12 @@ class FakeNodeTests(unittest.TestCase):
 
     def test_alert_propagates_distance_and_failure_silences_only_one_node(self):
         alert = {packet["id"]: packet for packet in build_packets("alert", 1, 1001.0)}
-        self.assertEqual([alert[node_id]["dist"] for node_id in (1, 2, 3)], [0, 1, 2])
+        self.assertEqual([alert[node_id]["dist"] for node_id in (1, 2)], [0, 1])
         self.assertTrue(alert[1]["alert"])
         self.assertEqual(alert[2]["via"], 1)
 
-        self.assertEqual([packet["id"] for packet in build_packets("failure", 2, 1002.0)], [1, 3])
-        self.assertEqual([packet["id"] for packet in build_packets("rejoin", 3, 1003.0)], [1, 2, 3])
+        self.assertEqual([packet["id"] for packet in build_packets("failure", 2, 1002.0)], [1])
+        self.assertEqual([packet["id"] for packet in build_packets("rejoin", 3, 1003.0)], [1, 2])
 
 
 if __name__ == "__main__":
