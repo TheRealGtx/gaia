@@ -243,13 +243,42 @@ def local_ip():
 _bcast = None                                   # broadcast_addrs() cache
 
 def iface_networks():
-    """Every non-loopback IPv4 address of this machine, with its real netmask,
-    read from `ip -o -4 addr`. Empty when there is no `ip` command (Windows).
+    """Every non-loopback IPv4 address of this machine, with its real netmask.
 
     The netmask has to be read, not guessed: the Junction Wi-Fi is a /20
     (10.0.32.0/20), where 10.0.38.255 is not a broadcast address but just
-    another host, so a packet sent there reaches nobody.
+    another host, and the App Lab container sits on a /16 docker bridge, where
+    the /24 guess produced 172.18.0.255 instead of 172.18.255.255.
+
+    ioctl first, because it needs no external binary: the App Lab container has
+    no `ip` command at all. `ip -o -4 addr` second, for anything exotic, and
+    empty on Windows, where the caller falls back to a guess and says so.
     """
+    found = []
+    try:
+        import fcntl
+        import struct
+        names = sorted(os.listdir("/sys/class/net"))
+    except Exception:                               # not Linux
+        names = []
+    for name in names:
+        s = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
+        try:
+            raw = struct.pack("256s", name.encode()[:15])
+            addr = socket.inet_ntoa(fcntl.ioctl(s.fileno(), 0x8915, raw)[20:24])
+            mask = socket.inet_ntoa(fcntl.ioctl(s.fileno(), 0x891b, raw)[20:24])
+        except Exception:                           # interface without an IPv4
+            continue
+        finally:
+            s.close()
+        if addr.startswith("127."):
+            continue
+        try:
+            found.append(ipaddress.ip_interface("%s/%s" % (addr, mask)))
+        except ValueError:
+            continue
+    if found:
+        return found
     try:
         # Not capture_output=/text=: those are Python 3.7+, and what the board
         # ships is not something to discover at 20:00 through a traceback at
@@ -259,7 +288,6 @@ def iface_networks():
                              timeout=2).stdout
     except Exception:                               # no `ip`, old Python, ...
         return []
-    found = []
     for line in out.splitlines():
         for token in line.split():
             if "/" in token and token[0].isdigit():
