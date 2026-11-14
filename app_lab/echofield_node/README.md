@@ -1,5 +1,12 @@
 # Gaia node, App Lab app (Chuqi)
 
+> **How the boards run now (demo setup):** the sketch is flashed with the
+> Arduino IDE and `main.py` + `aggregate/node.py` run as systemd services
+> (`install_service.sh`, see "Start at power-on" below). App Lab is no longer
+> used; its section is kept as a fallback. Calibration with the services:
+> `sudo systemctl stop gaia-sensor`, `rm readings.csv`, start it, record, stop,
+> rename to `normal.csv` / `hazard.csv` (the file is appended to, never reset).
+
 One App Lab app per board, the same files on every board. The MCU sketch owns
 **all** hardware (Thermo + Pixels), because a board runs only one sketch.
 

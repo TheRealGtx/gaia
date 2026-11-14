@@ -20,6 +20,9 @@ venv/
 .env.*
 !.env.example
 
+# sensor recordings written by main.py on the boards (calibration copies live in sensing_ml/)
+readings.csv
+
 # recordings and captures, kept out of git on purpose (they are huge)
 *.mp4
 *.mov
