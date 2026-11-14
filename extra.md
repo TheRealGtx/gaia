@@ -1,0 +1,1 @@
+- incendio si propaga nel tempo facendo vedere che cambiano le uscite di emergenza
