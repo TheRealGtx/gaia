@@ -35,6 +35,9 @@ is an arrow to the right; `ARROW_FLIP=1` if the line is laid out the other way.
 
 Full steps, in order, are in `START.md` §0. In short:
 
+0. **Run any App Lab app once**, before the sketch (an App Lab app replaces
+   it): that brings App Lab's Python image onto the board, which step 2
+   copies the Bridge from. Or copy `~/gaia/.bridge` from a board that has it.
 1. **Flash the sketch** from the Arduino IDE **over USB** (over the network
    the IDE uses SSH and fails on the password). Board package *Arduino UNO
    Q*; libraries `Arduino_RouterBridge` and `Arduino_Modulino` with all its

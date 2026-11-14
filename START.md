@@ -9,20 +9,65 @@ point at all (GaiaMesh, laptop on Linux), see `HANDOFF-linux.md`.
 
 ## 0. Once per board (already done, here for a new or wiped board)
 
-Flash the sketch from the Arduino IDE **over USB** (over the network the IDE
+In this order: the App Lab step must come before the sketch, because running
+an App Lab app replaces the sketch on the microcontroller.
+
+**a. App Lab, over USB.** The first time, App Lab sets the board's name
+(`Node4`, …), its Linux password and its Wi-Fi: choose the laptop's hotspot
+`MSI 9439` (section 1). Then run any example app once and stop it. That
+download is the point: it brings App Lab's Python image onto the board, and
+step d copies the Bridge library out of it. A board that never ran an app has
+nothing to copy.
+
+**b. The sketch, from the Arduino IDE over USB** (over the network the IDE
 uses SSH and fails on the password): open
-`app_lab/echofield_node/sketch/sketch.ino`, board **Arduino UNO Q**, port = the
-USB one, Upload. Then on the board, over SSH:
+`app_lab/echofield_node/sketch/sketch.ino`, board **Arduino UNO Q**
+(`arduino:zephyr`), port = the USB one, libraries `Arduino_RouterBridge` and
+`Arduino_Modulino` with all its dependencies (*Install all*), Upload.
+
+**c. The repository**, on the board over SSH (`ssh arduino@<address>`; the
+address is in the hotspot's device list):
+
+```bash
+git clone https://github.com/chuqi-gogo/gaia ~/gaia
+```
+
+**d. The Bridge for the board's Python:**
 
 ```bash
 cd ~/gaia/app_lab/echofield_node
-./setup_bridge.sh                              # copies the Bridge library out of App Lab
-sudo usermod -aG arduino-router arduino        # then log out and back in
+./setup_bridge.sh                              # asks for the sudo password
+sudo usermod -aG arduino-router arduino        # only if the script says NO; then log in again
+```
+
+If it stops at step 1 with `not found`, step a did not run an app. Either run
+one, or copy the library from a board that already has it (same Python
+version, `python3 --version` on both):
+
+```bash
+scp -r arduino@192.168.137.180:gaia/.bridge ~/gaia/
+cd ~/gaia && PYTHONPATH=.bridge/site-packages python3 -c "from arduino.app_utils import App, Bridge" && echo bridge ok
+```
+
+**e. The services**, with the board's id and its neighbours:
+
+```bash
 sudo ./install_service.sh 1 2                  # board 1, neighbour 2
 ```
 
 Board 2 is `sudo ./install_service.sh 2 1,3`, board 3 is `sudo ./install_service.sh 3 2`.
 From then on the board starts by itself at power-on.
+
+**A board with a new id** (a fourth one) also needs:
+
+- its id added to `NEIGHBORS` in `/etc/gaia/board.env` on every board it is
+  linked to, then `sudo systemctl restart gaia-node` there: links go both ways;
+- an entry in `dashboard/gateway/node_manifest.json` and in
+  `dashboard/src/live/liveManifest.ts`, or the dashboard ignores it;
+- a row in the table of section 2, and `BOARDS="1 2 3 4"` for
+  `network/pc_join.sh` on GaiaMesh.
+
+Gemma on the board is optional: `gemma/README.md`.
 
 ## 1. Network: the laptop's hotspot
 
