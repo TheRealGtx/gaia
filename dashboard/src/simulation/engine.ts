@@ -9,6 +9,7 @@ import type {
 import type { SimulationAction } from "./scenarios.ts";
 
 const SIMULATION_TIME = "2026-11-14T00:00:00.000Z";
+const SIMULATED_FIRE_TEMPERATURE = 78;
 
 function copySensor(sensor: SensorNode): SensorNode {
   return {
@@ -97,7 +98,15 @@ export function applySimulationAction(
         anomalyScore: Math.max(sensor.reading.anomalyScore ?? 0, 0.45),
       },
     }));
-    return finalize(state, sensors, action.sensorId);
+    const next = finalize(state, sensors, action.sensorId);
+    const source = next.sensors.find((sensor) => sensor.id === action.sensorId);
+    const fireAlreadyActive = next.hazards.some((hazard) => (
+      hazard.kind === "simulated-fire" && hazard.sourceSensorId === action.sensorId
+    ));
+    if ((source?.reading.temperature ?? 0) >= SIMULATED_FIRE_TEMPERATURE && !fireAlreadyActive) {
+      return applySimulationAction(next, { type: "confirm-fire", sensorId: action.sensorId });
+    }
+    return next;
   }
 
   if (action.type === "simulate-anomaly") {
@@ -122,7 +131,9 @@ export function applySimulationAction(
         status: sensor.id === action.sensorId ? "critical" as const : "warning" as const,
         reading: {
           ...sensor.reading,
-          temperature: sensor.id === action.sensorId ? 78 : (sensor.reading.temperature ?? 20) + 9,
+          temperature: sensor.id === action.sensorId
+            ? Math.max(sensor.reading.temperature ?? 20, SIMULATED_FIRE_TEMPERATURE)
+            : (sensor.reading.temperature ?? 20) + 9,
           humidity: sensor.id === action.sensorId ? 21 : Math.max(24, (sensor.reading.humidity ?? 50) - 12),
           anomalyScore: sensor.id === action.sensorId ? 0.99 : 0.72,
         },

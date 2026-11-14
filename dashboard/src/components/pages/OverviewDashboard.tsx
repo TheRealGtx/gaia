@@ -2,6 +2,7 @@
 
 import dynamic from "next/dynamic";
 import { PanelLeftOpen } from "lucide-react";
+import { useMemo } from "react";
 import { useGaiaActions, useGaiaState } from "../../state/hooks";
 import { MapToolbar } from "../operations/MapToolbar";
 import { OperationalCards } from "../operations/OperationalCards";
@@ -10,8 +11,7 @@ import { MobilePanelTabs } from "../shell/MobilePanelTabs";
 import { TelemetryPanel } from "../telemetry/TelemetryPanel";
 import { HazardGradientPanel } from "../telemetry/HazardGradientPanel";
 import { Button } from "../ui";
-import { selectActiveEnvironment } from "../../state/selectors";
-import { AlertBanner } from "../operations/AlertBanner";
+import { createCameraSyncChannel } from "../scene/cameraSync";
 
 const DigitalTwin = dynamic(() => import("../scene/DigitalTwin").then((module) => module.DigitalTwin), {
   ssr: false,
@@ -21,14 +21,14 @@ const DigitalTwin = dynamic(() => import("../scene/DigitalTwin").then((module) =
 export function OverviewDashboard() {
   const state = useGaiaState();
   const { dispatch } = useGaiaActions();
-  const environment = selectActiveEnvironment(state);
+  const cameraSync = useMemo(() => createCameraSyncChannel(), []);
   return (
     <main className="dashboard" data-telemetry-open={state.telemetryPanelOpen}>
       <h1 className="sr-only">Gaia environmental intelligence dashboard</h1>
       <MobilePanelTabs />
       <div className="left-overlay-stack" data-mobile-visible={state.mobilePanel === "sensors"} aria-hidden={!state.telemetryPanelOpen && state.mobilePanel !== "sensors"}>
         <TelemetryPanel />
-        <HazardGradientPanel />
+        <HazardGradientPanel cameraSync={cameraSync} />
       </div>
       <Button
         className="telemetry-open-button"
@@ -41,8 +41,7 @@ export function OverviewDashboard() {
       </Button>
       <section className="workspace">
         <MapToolbar />
-        <AlertBanner environment={environment} />
-        <DigitalTwin />
+        <DigitalTwin cameraSync={cameraSync} />
         <div className="bottom-overlay-stack">
           <SimulationBar />
           <OperationalCards />

@@ -140,12 +140,11 @@ export function appReducer(state: AppState, action: AppAction): AppState {
       selectedSensorId: action.sensorId,
       selectedRoomId: room?.id ?? null,
       selectedOriginId: room?.waypointId ?? environment.definition.defaultOriginId,
-      selectedFloorId: sensor?.floorId ?? state.selectedFloorId,
     };
   }
   if (action.type === "select-room") {
     const room = state.environments[state.activeEnvironmentId].definition.rooms.find((item) => item.id === action.roomId);
-    return room ? { ...state, selectedRoomId: room.id, selectedOriginId: room.waypointId, selectedFloorId: room.floorId ?? "all" } : state;
+    return room ? { ...state, selectedRoomId: room.id, selectedOriginId: room.waypointId } : state;
   }
   if (action.type === "select-floor") return { ...state, selectedFloorId: action.floorId };
   if (action.type === "set-page") return { ...state, page: action.page };

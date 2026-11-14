@@ -34,6 +34,11 @@ describe("environment configuration", () => {
     assert.ok(Math.max(...zs) - Math.min(...zs) >= 42);
   });
 
+  it("uses woodland route names after removing the visible pond", () => {
+    const forest = ENVIRONMENTS.find((environment) => environment.id === "forest-north")!;
+    assert.equal(forest.waypoints.some((waypoint) => /lake/i.test(waypoint.name)), false);
+  });
+
   it("keeps node IDs unique and every configured neighbour valid", () => {
     for (const environment of ENVIRONMENTS) {
       const ids = environment.sensors.map((sensor) => sensor.id);

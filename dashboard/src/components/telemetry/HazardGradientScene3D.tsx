@@ -1,9 +1,12 @@
 "use client";
 
-import { Line, OrbitControls } from "@react-three/drei";
-import { Canvas } from "@react-three/fiber";
-import type { DataSource } from "../../domain/types";
+import { Line } from "@react-three/drei";
+import { Canvas, useThree } from "@react-three/fiber";
+import { useEffect } from "react";
+import { PerspectiveCamera } from "three";
+import type { DataSource, EnvironmentId } from "../../domain/types";
 import { gradientFieldColor, liveGradientColor } from "../../domain/hazardGradient";
+import { applyPerspectiveCameraView, type CameraSyncChannel } from "../scene/cameraSync";
 import { fitHazardGradientScene, type HazardGradientSceneModel, type HazardGradientSceneNode } from "./hazardGradientSceneModel";
 
 function GradientSensorPoint({
@@ -42,14 +45,38 @@ function GradientSensorPoint({
   );
 }
 
+function SynchronizedGradientCamera({
+  cameraSync,
+  environmentId,
+}: {
+  cameraSync: CameraSyncChannel;
+  environmentId: EnvironmentId;
+}) {
+  const { camera, invalidate } = useThree();
+
+  useEffect(() => {
+    if (!(camera instanceof PerspectiveCamera)) return;
+    return cameraSync.subscribe(environmentId, (view) => {
+      applyPerspectiveCameraView(camera, view);
+      invalidate();
+    });
+  }, [camera, cameraSync, environmentId, invalidate]);
+
+  return null;
+}
+
 export function HazardGradientScene3D({
   scene,
+  cameraSync,
+  environmentId,
   mode,
   maxLevel,
   sourceId,
   onSelectSensor,
 }: {
   scene: HazardGradientSceneModel;
+  cameraSync: CameraSyncChannel;
+  environmentId: EnvironmentId;
   mode: DataSource;
   maxLevel: number;
   sourceId: string | null;
@@ -64,6 +91,7 @@ export function HazardGradientScene3D({
       dpr={[1, 1.5]}
       camera={{ position: frame.cameraPosition, fov: 40, near: .1, far: frame.maxDistance * 4 }}
     >
+      <SynchronizedGradientCamera cameraSync={cameraSync} environmentId={environmentId} />
       {scene.links.map((link) => {
         const highlighted = selectedIds.has(link.sourceId) || selectedIds.has(link.targetId);
         return (
@@ -89,19 +117,6 @@ export function HazardGradientScene3D({
           onSelect={() => onSelectSensor(node.sensorId)}
         />
       ))}
-      <OrbitControls
-        makeDefault
-        target={frame.center}
-        enableDamping
-        dampingFactor={.08}
-        enablePan={false}
-        enableRotate
-        enableZoom
-        minDistance={frame.minDistance}
-        maxDistance={frame.maxDistance}
-        minPolarAngle={.08}
-        maxPolarAngle={Math.PI - .08}
-      />
     </Canvas>
   );
 }

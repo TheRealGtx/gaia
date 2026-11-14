@@ -4,9 +4,10 @@ import { Network, PanelLeftClose } from "lucide-react";
 import { useEffect, useState } from "react";
 import { useGaiaActions, useGaiaState } from "../../state/hooks";
 import { selectDashboard } from "../../state/selectors";
-import { Button, MetricCard, SegmentedControl } from "../ui";
+import { Button, SegmentedControl } from "../ui";
 import { startModelAgeTicker } from "./modelPresentation";
 import { SensorCard } from "./SensorCard";
+import { AlertMetricCard, SemicircleGaugeCard, TemperatureGaugeCard } from "./TelemetryGauge";
 
 export function TelemetryPanel() {
   const state = useGaiaState();
@@ -15,6 +16,12 @@ export function TelemetryPanel() {
   const [modelAgeNow, setModelAgeNow] = useState(() => new Date());
   const sensorDetailsVisible = state.telemetryView === "sensors"
     && (state.telemetryPanelOpen || state.mobilePanel === "sensors");
+  const sensorPercent = environment.sensors.length
+    ? Math.round(metrics.activeSensors / environment.sensors.length * 100)
+    : null;
+  const linkPercent = metrics.totalLinks
+    ? Math.round(metrics.activeLinks / metrics.totalLinks * 100)
+    : null;
   useEffect(() => {
     if (!sensorDetailsVisible) return;
     return startModelAgeTicker(setModelAgeNow);
@@ -29,10 +36,10 @@ export function TelemetryPanel() {
         {state.telemetryView === "telemetry" ? (
           <section className="telemetry-summary" aria-label="Environment telemetry">
             <div className="metric-grid">
-              <MetricCard label="Active sensors" value={`${metrics.activeSensors}/${environment.sensors.length}`} detail={`${Math.round(metrics.activeSensors / environment.sensors.length * 100)}%`} />
-              <MetricCard label="Confirmed alerts" value={metrics.activeAlerts} detail={metrics.activeAlerts ? "Active" : "Clear"} />
-              <MetricCard label="Avg temperature" value={metrics.averageTemperature === null ? "—" : `${metrics.averageTemperature.toFixed(1)}°`} detail={environment.definition.kind === "building" ? "Indoor" : "Outdoor"} />
-              <MetricCard label="Network health" value={`${environment.topology.connections.filter((item) => item.active).length}`} detail="active links" />
+              <SemicircleGaugeCard label="Active sensors" value={`${metrics.activeSensors}/${environment.sensors.length}`} detail={sensorPercent === null ? "Unavailable" : `${sensorPercent}% online`} percent={sensorPercent} />
+              <AlertMetricCard count={metrics.activeAlerts} />
+              <TemperatureGaugeCard average={metrics.averageTemperature} minimum={metrics.minimumTemperature} maximum={metrics.maximumTemperature} context={environment.definition.kind === "building" ? "Indoor" : "Outdoor"} />
+              <SemicircleGaugeCard label="Network health" value={metrics.totalLinks ? `${metrics.activeLinks}/${metrics.totalLinks}` : "—"} detail={linkPercent === null ? "Awaiting topology" : `${linkPercent}% active`} percent={linkPercent} />
             </div>
           </section>
         ) : (
