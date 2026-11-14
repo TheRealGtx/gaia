@@ -112,7 +112,14 @@ export class LiveNetworkAdapter implements DataAdapter {
 
   private applyEvent(event: NetworkEvent): void {
     let emittedEvent = event;
-    if (event.type === "snapshot") this.states.set(event.environment.definition.id, event.environment);
+    if (event.type === "snapshot") {
+      // Every UDP packet arrives as a full snapshot, which carries no report:
+      // keep the last situation report (Gemma or template) across them.
+      const previous = this.states.get(event.environment.definition.id)?.aiSummary;
+      const environment = event.environment.aiSummary || !previous ? event.environment : { ...event.environment, aiSummary: previous };
+      this.states.set(environment.definition.id, environment);
+      emittedEvent = { ...event, environment };
+    }
     if ("environmentId" in event && event.environmentId) {
       const current = this.states.get(event.environmentId);
       if (current) {
