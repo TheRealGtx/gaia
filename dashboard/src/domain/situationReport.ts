@@ -22,7 +22,7 @@ export function buildSituationReport(environment: EnvironmentState): SituationRe
     ? " Readings simulated."
     : "";
   const summary = sourceSensors.length
-    ? `Hazard source reported by ${sourceSensors.map((sensor) => sensor.id).join(", ")}. ${escapeToSensorId ? `Follow node guidance toward ${escapeToSensorId}.` : "No escape neighbour is currently available."}${offlineSensorIds.length ? ` Offline: ${offlineSensorIds.join(", ")}.` : ""}${simulatedDisclosure}`
+    ? `Hazard source reported by ${sourceSensors.map((sensor) => sensor.id).join(", ")}. ${escapeToSensorId ? `Prototype node guidance points toward ${escapeToSensorId}.` : "No escape neighbour is currently available."}${offlineSensorIds.length ? ` Offline: ${offlineSensorIds.join(", ")}.` : ""}${simulatedDisclosure}`
     : `No active hazard reported. ${offlineSensorIds.length ? `${offlineSensorIds.length} node${offlineSensorIds.length === 1 ? " is" : "s are"} offline.` : "All reporting nodes are online."}${simulatedDisclosure}`;
   return {
     summary,

@@ -396,14 +396,14 @@ The gateway and model are in-memory. Restarting them clears live state; the node
 ## Known prototype limits
 
 - The platform vision is multi-domain, but the current protocol, model, dashboard types, and simulations still contain temperature, humidity, hazard, fire, and evacuation concepts directly. The environmental profile abstraction is designed in the documentation but not yet implemented.
-- Hardware-facing Arduino APIs and pins must be validated against the exact UNO Q firmware and installed libraries.
+- The sketch and the Bridge were validated on our three UNO Q boards (core `arduino:zephyr` 1.1.0, Arduino_Modulino with its dependencies); other firmware or library versions are untested.
 - Live mode is configured for three building nodes; the forest remains simulation-only.
 - The model uses temperature only and was calibrated on one short indoor recording, not a wildfire dataset.
 - Federated merging is sample-weighted but can double-count statistics across repeated exchanges.
 - `bytes_sent` compares JSON model parameters with hypothetical raw-reading JSON; it is not a full energy or network measurement, and the current dashboard does not display these counters.
 - The physical `escape_to` field is node-to-node guidance; building/forest exit routing is a dashboard simulation feature.
 - The live gateway is an observer, but its unauthenticated local POST endpoints can inject display events.
-- No project license is currently declared. Add one before reuse or public distribution.
+- The code is under the MIT license ([`LICENSE`](LICENSE)); Gemma 3 is a separate model under Google's Gemma terms and is not redistributed here.
 
 For the technical boundaries see [`docs/ARCHITECTURE.md`](docs/ARCHITECTURE.md). For a prioritized list of missing, incorrect, or promised work and a concrete implementation path for each item, see [`docs/IMPLEMENTATION_GAP_ANALYSIS.md`](docs/IMPLEMENTATION_GAP_ANALYSIS.md).
 

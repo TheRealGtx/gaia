@@ -9,6 +9,7 @@ export function MapToolbar() {
   const optionsDialog = useRef<HTMLDialogElement>(null);
   const state = useGaiaState();
   const { dispatch } = useGaiaActions();
+  const live = state.mode === "live";
   return (
     <div className="map-toolbar">
       <div className="map-toolbar__actions">
@@ -28,7 +29,7 @@ export function MapToolbar() {
           <header><div><h2 id="map-options-title">Map options</h2><p>Choose what appears on the map.</p></div><Button icon={X} iconOnly variant="ghost" aria-label="Close map options" onClick={() => optionsDialog.current?.close()} /></header>
           <div className="map-options-dialog__body">
             <div className="map-options__toggles">
-              <Button icon={Route} variant={state.showRoutes ? "active" : "outline"} aria-pressed={state.showRoutes} onClick={() => dispatch({ type: "toggle-routes" })}>Evacuation paths</Button>
+              <Button icon={Route} variant={state.showRoutes && !live ? "active" : "outline"} aria-pressed={state.showRoutes && !live} disabled={live} title={live ? "Simulation only: in Live mode the guidance is the nodes' escape_to" : undefined} onClick={() => dispatch({ type: "toggle-routes" })}>{live ? "Evacuation paths (simulation only)" : "Evacuation paths"}</Button>
               <Button icon={Network} variant={state.showNetwork ? "active" : "outline"} aria-pressed={state.showNetwork} onClick={() => dispatch({ type: "toggle-network" })}>Mesh links</Button>
               <Button icon={RotateCcw} onClick={() => dispatch({ type: "reset-camera" })}>Reset view</Button>
             </div>
@@ -36,6 +37,11 @@ export function MapToolbar() {
           </div>
         </dialog>
       </div>
+      <p className="map-guidance" data-source={live ? "network" : "simulation"}>
+        {live
+          ? <><strong>Network guidance</strong> Green line: the selected node&apos;s escape_to, as the boards report it. No browser route in Live.</>
+          : <><strong>Simulated what-if</strong> Green path: computed by the dashboard on the configured map, not by the network. Not certified guidance.</>}
+      </p>
     </div>
   );
 }

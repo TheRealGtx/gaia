@@ -792,6 +792,25 @@
   backdrop-filter: blur(14px);
   pointer-events: auto;
 }
+.map-guidance {
+  max-width: min(360px, 100%);
+  margin: 0;
+  padding: 8px 12px;
+  border: 1px solid var(--border);
+  border-radius: 12px;
+  background: var(--surface-glass);
+  box-shadow: var(--shadow-low);
+  backdrop-filter: blur(14px);
+  color: var(--text-secondary);
+  font-size: 11px;
+  line-height: 1.4;
+  pointer-events: auto;
+}
+.map-guidance strong {
+  display: block;
+  color: var(--text);
+  font-size: 11px;
+}
 .map-legend {
   list-style: none;
   margin: 12px 0 0;
