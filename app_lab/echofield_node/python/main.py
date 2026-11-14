@@ -42,6 +42,13 @@ from arduino.app_utils import App, Bridge   # [P1]
 RECORD = os.path.abspath(os.environ.get("RECORD", "readings.csv"))
 HOT = 30.0                                   # TEST MODE ONLY, see docstring
 
+# App Lab runs this file inside Docker (172.18.0.2): broadcasts never reach the
+# Wi-Fi. Send heartbeats to the board host instead, where
+# app_lab/board_host/udp_bridge.py relays them both ways. Must run before
+# `import node`. Per board, also set NODE_ID / NEIGHBORS here, e.g.:
+#   os.environ.setdefault("NODE_ID", "3"); os.environ.setdefault("NEIGHBORS", "2")
+os.environ.setdefault("BROADCAST", "172.18.0.1")
+
 # ---- hardware (Bridge) -----------------------------------------------------
 def _bridge_read():
     """{"temp": C, "hum": %} straight from the MCU."""
