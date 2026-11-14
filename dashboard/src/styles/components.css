@@ -42,3 +42,31 @@
 .metric-card__value { display: flex; align-items: baseline; gap: 6px; }
 .metric-card__value strong { font-size: 22px; letter-spacing: -.04em; }
 .metric-card__detail { font-size: 11px; color: var(--text-muted); }
+
+.loading-screen {
+  position: fixed;
+  inset: 0;
+  z-index: 1000;
+  display: grid;
+  place-items: center;
+  padding: 24px;
+  background: var(--surface);
+  color: var(--text);
+  cursor: progress;
+}
+.loading-screen__content { display: grid; justify-items: center; gap: 16px; text-align: center; }
+.loading-screen__logo {
+  width: 64px;
+  height: 64px;
+  margin-bottom: 8px;
+  background: currentColor;
+  -webkit-mask: url("/logo.svg") center / contain no-repeat;
+  mask: url("/logo.svg") center / contain no-repeat;
+  animation: gaia-loading-turn 4s linear infinite;
+}
+.loading-screen__brand { font-size: 32px; line-height: 1; font-weight: 800; letter-spacing: -.05em; }
+.loading-screen__label { color: var(--text-secondary); font-size: 13px; line-height: 1.5; }
+@keyframes gaia-loading-turn { to { transform: rotate(360deg); } }
+@media (prefers-reduced-motion: reduce) {
+  .loading-screen__logo { animation: none; }
+}
