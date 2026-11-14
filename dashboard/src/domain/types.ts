@@ -60,7 +60,7 @@ export interface NetworkTopology {
   source: DataSource;
 }
 
-export type AlertKind = "local-anomaly" | "network-confirmed" | "gateway";
+export type AlertKind = "network-confirmed" | "gateway";
 
 export interface Alert {
   id: string;
@@ -190,6 +190,7 @@ export interface EnvironmentState {
   lastSync: string;
   source: DataSource;
   aiSummary?: string;
+  disabledSimulationSensors?: Record<string, SensorNode>;
 }
 
 export type NetworkEvent =

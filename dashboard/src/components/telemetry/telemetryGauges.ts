@@ -1,5 +1,3 @@
-export const TEMPERATURE_GAUGE_MIN = -5;
-export const TEMPERATURE_GAUGE_MAX = 40;
 export const GAUGE_ARC_PATH = "M 12.785 77.038 A 46 46 0 1 1 87.215 77.038";
 
 const GAUGE_ARC_START_DEGREES = 144;
@@ -18,4 +16,12 @@ export function gaugeArcPoint(percent: number) {
     x: Math.round((50 + Math.cos(angle) * GAUGE_ARC_RADIUS) * 1000) / 1000,
     y: Math.round((50 + Math.sin(angle) * GAUGE_ARC_RADIUS) * 1000) / 1000,
   };
+}
+
+export function temperatureGaugeBounds(minimum: number | null, maximum: number | null) {
+  if (minimum === null || maximum === null || !Number.isFinite(minimum) || !Number.isFinite(maximum) || maximum < minimum) {
+    return { minimum: -5, maximum: 40 };
+  }
+  const padding = Math.max(1, (maximum - minimum) * .25);
+  return { minimum: minimum - padding, maximum: maximum + padding };
 }

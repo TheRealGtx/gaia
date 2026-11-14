@@ -43,13 +43,39 @@ describe("simulation engine", () => {
     assert.equal(hotter.alerts.filter((alert) => alert.kind === "network-confirmed").length, 1);
   });
 
-  it("creates a local anomaly without a visual fire", () => {
+  it("restores a disabled sensor and its mesh links without resetting other scenarios", () => {
     const initial = createInitialEnvironmentState(ENVIRONMENT_BY_ID["building-a"]);
-    const result = applySimulationAction(initial, { type: "simulate-anomaly", sensorId: "A-04" });
+    const fire = applySimulationAction(initial, { type: "confirm-fire", sensorId: "A-04" });
+    const blocked = applySimulationAction(fire, { type: "block-edge", edgeId: "atrium-south" });
+    const disabled = applySimulationAction(blocked, { type: "disable-node", sensorId: "A-04" });
+    const repeated = applySimulationAction(disabled, { type: "disable-node", sensorId: "A-04" });
+    const restored = applySimulationAction(repeated, { type: "enable-node", sensorId: "A-04" });
 
-    assert.equal(result.alerts[0]?.kind, "local-anomaly");
-    assert.equal(result.alerts[0]?.confirmed, false);
-    assert.equal(result.hazards.some((hazard) => hazard.kind === "simulated-fire"), false);
+    assert.equal(disabled.sensors.find((sensor) => sensor.id === "A-04")?.reading.temperature, null);
+    assert.deepEqual(restored.sensors, blocked.sensors);
+    assert.deepEqual(restored.topology, blocked.topology);
+    assert.deepEqual(restored.hazards, blocked.hazards);
+    assert.deepEqual(restored.alerts, blocked.alerts);
+    assert.deepEqual(restored.blockedEdgeIds, blocked.blockedEdgeIds);
+    assert.equal(applySimulationAction(restored, { type: "enable-node", sensorId: "A-04" }), restored);
+  });
+
+  it("recovers a network fault only after all affected sensors are enabled", () => {
+    const initial = createInitialEnvironmentState(ENVIRONMENT_BY_ID["building-a"]);
+    const failed = applySimulationAction(initial, { type: "network-failure", sensorIds: ["A-02", "A-03"] });
+    const partial = applySimulationAction(failed, { type: "enable-node", sensorId: "A-02" });
+    assert.equal(partial.connection, "reconnecting");
+    assert.equal(partial.sensors.find((sensor) => sensor.id === "A-03")?.status, "offline");
+    const recovered = applySimulationAction(partial, { type: "enable-node", sensorId: "A-03" });
+    assert.equal(recovered.connection, "connected");
+    assert.deepEqual(recovered.sensors, initial.sensors);
+  });
+
+  it("does not apply temperature or fire injections to a disabled sensor", () => {
+    const initial = createInitialEnvironmentState(ENVIRONMENT_BY_ID["building-a"]);
+    const disabled = applySimulationAction(initial, { type: "disable-node", sensorId: "A-04" });
+    assert.equal(applySimulationAction(disabled, { type: "increase-temperature", sensorId: "A-04", delta: 5 }), disabled);
+    assert.equal(applySimulationAction(disabled, { type: "confirm-fire", sensorId: "A-04" }), disabled);
   });
 
   it("adds a confirmed simulated fire distinctly from measurements", () => {

@@ -9,7 +9,7 @@ npm install
 npm run dev
 ```
 
-Open `http://localhost:3000`. Simulation Mode is the default and requires no external service. Use the controls to combine fire, obstruction, elevated temperature, local anomaly, node outage, and network-fault scenarios. `Reset` restores the selected environment.
+Open `http://localhost:3000`. Simulation Mode is the default and requires no external service. Use the controls to combine fire, obstruction, elevated temperature, node outage, and network-fault scenarios. The selected sensor’s control switches between `Disable` and `Enable`; enabling restores its readings and mesh links without resetting other scenarios. Buildings always show all floors together. `Reset` restores the selected environment.
 
 Production verification:
 

@@ -3,7 +3,7 @@
 import { CircleCheck, Siren } from "lucide-react";
 import { useId } from "react";
 import type { SensorStatus } from "../../domain/types";
-import { GAUGE_ARC_PATH, gaugeArcPoint, gaugePercent, TEMPERATURE_GAUGE_MAX, TEMPERATURE_GAUGE_MIN } from "./telemetryGauges";
+import { GAUGE_ARC_PATH, gaugeArcPoint, gaugePercent, temperatureGaugeBounds } from "./telemetryGauges";
 
 function toneForRatio(percent: number | null): SensorStatus {
   if (percent === null) return "offline";
@@ -51,9 +51,10 @@ export function TemperatureGaugeCard({
   context: string;
 }) {
   const gradientId = useId().replaceAll(":", "");
-  const averagePercent = gaugePercent(average, TEMPERATURE_GAUGE_MIN, TEMPERATURE_GAUGE_MAX);
-  const minimumPercent = gaugePercent(minimum, TEMPERATURE_GAUGE_MIN, TEMPERATURE_GAUGE_MAX);
-  const maximumPercent = gaugePercent(maximum, TEMPERATURE_GAUGE_MIN, TEMPERATURE_GAUGE_MAX);
+  const bounds = temperatureGaugeBounds(minimum, maximum);
+  const averagePercent = gaugePercent(average, bounds.minimum, bounds.maximum);
+  const minimumPercent = gaugePercent(minimum, bounds.minimum, bounds.maximum);
+  const maximumPercent = gaugePercent(maximum, bounds.minimum, bounds.maximum);
   const minimumPoint = minimumPercent === null ? null : gaugeArcPoint(minimumPercent);
   const averagePoint = averagePercent === null ? null : gaugeArcPoint(averagePercent);
   const maximumPoint = maximumPercent === null ? null : gaugeArcPoint(maximumPercent);
@@ -76,7 +77,7 @@ export function TemperatureGaugeCard({
             </linearGradient>
           </defs>
           <path className="telemetry-gauge__track" d={GAUGE_ARC_PATH} pathLength="100" />
-          <path className="temperature-gauge__range" d={GAUGE_ARC_PATH} pathLength="100" stroke={`url(#${gradientId})`} strokeDasharray={`0 ${rangeStart} ${rangeLength} ${Math.max(0, 100 - rangeStart - rangeLength)}`} />
+          {rangeLength > 0 ? <path className="temperature-gauge__range" d={GAUGE_ARC_PATH} pathLength="100" stroke={`url(#${gradientId})`} strokeDasharray={`${rangeLength} 100`} strokeDashoffset={-rangeStart} /> : null}
           {minimumPoint ? <circle className="temperature-gauge__edge" cx={minimumPoint.x} cy={minimumPoint.y} r="2.3" /> : null}
           {maximumPoint ? <circle className="temperature-gauge__edge" cx={maximumPoint.x} cy={maximumPoint.y} r="2.3" /> : null}
           {averagePoint ? <circle className="temperature-gauge__average" cx={averagePoint.x} cy={averagePoint.y} r="3.4" /> : null}

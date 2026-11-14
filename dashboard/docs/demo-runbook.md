@@ -54,7 +54,6 @@ For the closest laptop-only rehearsal, start the gateway and browser, then run `
 - `simulated: true` is labeled **Simulated input · not measured**.
 - Below `n = 20`, the model reads **learning (n/20)** instead of showing `mu` as a learned temperature.
 - Missing counters read **Awaiting counters**. Zero counters remain a real zero.
-- Present Green AI as: **sharing what each node learned costs less than shipping its readings away to train a central model**. Do not claim that total network traffic fell by the displayed percentage; dashboard readings remain local heartbeat telemetry.
 - The exact claim remains visible: `Dashboard is read-only: the network works without it.`
 
 ## Three-minute failure rehearsal
@@ -67,7 +66,6 @@ For the closest laptop-only rehearsal, start the gateway and browser, then run `
 - [ ] Rejoin: reconnect the board; a new packet restores it even if its `ts` restarted at a lower value.
 - [ ] Unknown path: while a hazard is active, show another node at `dist 99`; it is grey and never named the safest area.
 - [ ] Dashboard independence: close the browser/laptop view and verify the LEDs and node communication continue.
-- [ ] Counter reset: restart one model; Green AI totals never become a negative saving.
 
 ## Recovery
 

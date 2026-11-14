@@ -1,5 +1,7 @@
 # Gaia: Action Plan (Saturday 14/11 → Sunday 15/11)
 
+> **Historical scope note:** this plan records the implementation of Gaia's thermal-hazard reference demonstrator for the hackathon. Gaia's product direction is a multi-domain environmental intelligence platform. See [`README.md`](README.md) and [`docs/ARCHITECTURE.md`](docs/ARCHITECTURE.md) for the current positioning and the planned environmental profile architecture.
+
 Team: **Giuliano** (aggregate computing), **Chuqi** (AI model), **Pietro** (demo, frontend, pitch and presentation).
 
 Time reference: it is Saturday 10:00 now, the deadline is Sunday 10:00. **Goal: submit by 9:30**, to leave a margin for Project Hub and Junction uploads.

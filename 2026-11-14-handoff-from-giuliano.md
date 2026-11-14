@@ -1,5 +1,7 @@
 # What the others need to update — from the aggregate side
 
+> **Historical scope note:** this handoff documents the thermal-hazard demonstrator built during the hackathon. It is implementation history, not the full scope of Gaia as an environmental intelligence platform. Current architecture and gaps are documented in [`README.md`](README.md), [`docs/ARCHITECTURE.md`](docs/ARCHITECTURE.md), and [`docs/IMPLEMENTATION_GAP_ANALYSIS.md`](docs/IMPLEMENTATION_GAP_ANALYSIS.md).
+
 Giuliano, Saturday 14/11, 14:00. Everything in here came out of building and
 testing the node side today; none of it is speculation, each point says how it
 was observed.

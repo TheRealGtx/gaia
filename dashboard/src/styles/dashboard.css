@@ -329,7 +329,7 @@
 }
 .temperature-gauge__range {
   stroke-width: 11;
-  transition: stroke-dasharray 0.35s ease;
+  transition: stroke-dasharray 0.35s ease, stroke-dashoffset 0.35s ease;
 }
 .temperature-gauge__edge {
   fill: var(--surface);
@@ -351,6 +351,7 @@
   gap: 8px;
 }
 .temperature-gauge__readout > span {
+  transform: translateY(-6px);
   min-width: 0;
   display: grid;
   gap: 1px;
@@ -1045,34 +1046,6 @@
   min-height: 40px;
   font-size: 12px;
 }
-.operation-icon--green {
-  color: var(--safe-dark);
-  background: var(--safe-bg);
-}
-.communication-saving {
-  margin: 9px 0 8px;
-  display: flex;
-  align-items: baseline;
-  gap: 8px;
-}
-.communication-saving strong {
-  color: var(--safe-dark);
-  font-size: 22px;
-  letter-spacing: -0.04em;
-}
-.communication-saving span {
-  color: var(--text-secondary);
-  font-size: 9px;
-}
-.communication-saving--empty {
-  display: grid;
-  gap: 3px;
-}
-.communication-saving--empty strong {
-  color: var(--text);
-  font-size: 13px;
-  letter-spacing: 0;
-}
 .gateway-supplement {
   padding-top: 7px;
   border-top: 1px solid var(--border-soft);
@@ -1668,8 +1641,7 @@
 }
 .disclosure > summary::-webkit-details-marker { display: none; }
 .disclosure > summary:hover { background: var(--surface-subtle); }
-.disclosure > summary:focus-visible,
-.floor-select select:focus-visible {
+.disclosure > summary:focus-visible {
   outline: 3px solid var(--safe);
   outline-offset: -3px;
 }
@@ -1679,18 +1651,6 @@
   transition: transform 150ms ease;
 }
 .disclosure[open] > summary .disclosure__chevron { transform: rotate(180deg); }
-.floor-select { min-width: 0; }
-.floor-select select {
-  max-width: 100%;
-  min-height: 44px;
-  padding: 0 10px;
-  border: 1px solid var(--border);
-  border-radius: 10px;
-  background: var(--surface);
-  color: var(--text);
-  font-size: 12px;
-  font-weight: 600;
-}
 .sensor-panel-toggle { min-height: 44px; }
 .map-options-toggle { min-height: 44px; margin-left: auto; }
 /* Native modal dialogs render above every dashboard stacking context. */

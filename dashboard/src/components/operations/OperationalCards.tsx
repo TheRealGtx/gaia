@@ -1,8 +1,7 @@
 "use client";
 
-import { BrainCircuit, FlaskConical, Leaf, Network, Route, X } from "lucide-react";
+import { BrainCircuit, FlaskConical, Network, Route, X } from "lucide-react";
 import { useEffect, useRef, useState } from "react";
-import { calculateCommunicationSavings } from "../../domain/communicationSavings";
 import { buildSituationReport } from "../../domain/situationReport";
 import { useGaiaState } from "../../state/hooks";
 import { selectDashboard } from "../../state/selectors";
@@ -14,7 +13,6 @@ const sections = [
   { id: "simulation", label: "Simulation", icon: FlaskConical },
   { id: "route", label: "Route", icon: Route },
   { id: "situation", label: "Situation", icon: BrainCircuit },
-  { id: "green", label: "Green AI", icon: Leaf },
 ] as const;
 type OperationSection = typeof sections[number]["id"];
 
@@ -37,7 +35,6 @@ export function OperationalCards() {
   const { environment, bestRoute, routes, selectedSensor } = selectDashboard(state);
   const exit = environment.definition.exits.find((item) => item.id === bestRoute?.exitId);
   const report = buildSituationReport(environment);
-  const savings = calculateCommunicationSavings(environment.sensors);
   const liveEscapeTo = selectedSensor?.live?.escapeTo ?? report.escapeToSensorId;
   const routeAvailable = state.mode === "live" ? Boolean(liveEscapeTo) : Boolean(bestRoute);
   const routeOrigin = environment.definition.kind === "forest"
@@ -64,12 +61,6 @@ export function OperationalCards() {
             <p>{state.mode === "live" ? report.summary : generateIntelligenceSummary(environment, bestRoute)}</p>
             {state.mode === "live" && environment.aiSummary ? <p className="gateway-supplement"><strong>Gateway supplement:</strong> {environment.aiSummary}</p> : null}
             <footer><span><Network size={13} /> {environment.consensus ? `${environment.consensus.agreeing}/${environment.consensus.eligible} neighbours agree` : "No active consensus"}</span><span>{state.mode}</span></footer>
-          </Card>
-        ) : null}
-        {activePanel === "green" ? (
-          <Card className="operation-card">
-            <header><span className="operation-icon operation-icon--green"><Leaf size={15} /></span><h2>Green AI</h2><span className="ai-source">Cumulative</span></header>
-            {savings ? <><div className="communication-saving"><strong>{savings.reductionPercent}%</strong><span>less learning traffic than central training</span></div><dl><div><dt>Shared model</dt><dd>{savings.bytesSent} B</dd></div><div><dt>Raw training data</dt><dd>{savings.bytesIfRawData} B</dd></div><div><dt>Avoided</dt><dd>{savings.bytesAvoided} B</dd></div></dl><footer>{savings.reportingNodes}/{savings.totalNodes} nodes · model sharing vs raw readings</footer></> : <><div className="communication-saving communication-saving--empty"><strong>Awaiting counters</strong><span>Absent values are not treated as zero</span></div><footer>Live model counters only</footer></>}
           </Card>
         ) : null}
       </div>

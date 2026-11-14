@@ -18,8 +18,6 @@ export function generateIntelligenceSummary(
     const consensus = state.consensus;
     parts.push(fires.length > 1 ? `${fires.length} simulated fires are active across the environment.` : `A simulated fire scenario is active${node ? ` near ${node.name}` : ""}.`);
     if (consensus) parts.push(`For the most recently evaluated node, ${consensus.agreeing} of ${consensus.eligible} available neighbour nodes report correlated anomalies in this simulation.`);
-  } else if (state.alerts.some((alert) => alert.kind === "local-anomaly")) {
-    parts.push("A local anomaly is present, but the network has not confirmed a fire.");
   } else {
     parts.push(`All reporting nodes in ${state.definition.name} are within the configured nominal scenario.`);
   }

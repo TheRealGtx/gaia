@@ -24,7 +24,6 @@ export interface AppState {
   selectedSensorId: string;
   selectedRoomId: string | null;
   selectedOriginId: string;
-  selectedFloorId: string;
   page: AppPage;
   mobilePanel: MobilePanel;
   telemetryPanelOpen: boolean;
@@ -43,7 +42,6 @@ export type AppAction =
   | { type: "select-environment"; environmentId: EnvironmentId }
   | { type: "select-sensor"; sensorId: string }
   | { type: "select-room"; roomId: string }
-  | { type: "select-floor"; floorId: string }
   | { type: "set-page"; page: AppPage }
   | { type: "set-mobile-panel"; panel: MobilePanel }
   | { type: "toggle-telemetry-panel" }
@@ -69,7 +67,6 @@ export function createInitialAppState(): AppState {
     selectedSensorId: environments[activeEnvironmentId].definition.defaultSensorId,
     selectedRoomId: null,
     selectedOriginId: environments[activeEnvironmentId].definition.defaultSensorId,
-    selectedFloorId: "all",
     page: "Overview",
     mobilePanel: "map",
     telemetryPanelOpen: true,
@@ -133,7 +130,6 @@ export function appReducer(state: AppState, action: AppAction): AppState {
       ...state,
       activeEnvironmentId: action.environmentId,
       ...sensorSelection(environment, environment.definition.defaultSensorId),
-      selectedFloorId: "all",
       page: "Overview",
       mobilePanel: "map",
       telemetryView: "telemetry",
@@ -149,7 +145,6 @@ export function appReducer(state: AppState, action: AppAction): AppState {
     const room = state.environments[state.activeEnvironmentId].definition.rooms.find((item) => item.id === action.roomId);
     return room ? { ...state, selectedRoomId: room.id, selectedOriginId: room.waypointId } : state;
   }
-  if (action.type === "select-floor") return { ...state, selectedFloorId: action.floorId };
   if (action.type === "set-page") return { ...state, page: action.page };
   if (action.type === "set-mobile-panel") return { ...state, mobilePanel: action.panel };
   if (action.type === "toggle-telemetry-panel") return { ...state, telemetryPanelOpen: !state.telemetryPanelOpen };
@@ -172,7 +167,7 @@ export function appReducer(state: AppState, action: AppAction): AppState {
           reading: { temperature: null, humidity: null, anomalyScore: null, lastUpdate: new Date(0).toISOString(), source: "live" as const },
           live: undefined,
         })),
-        alerts: [], hazards: [], blockedEdgeIds: [], consensus: null,
+        alerts: [], hazards: [], blockedEdgeIds: [], consensus: null, disabledSimulationSensors: undefined,
         topology: { ...environment.topology, connections: [], source: "live" as const },
         source: "live" as const, connection: "connecting" as const,
       }];

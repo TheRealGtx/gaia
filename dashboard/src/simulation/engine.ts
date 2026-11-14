@@ -43,20 +43,6 @@ function updateSensor(
   return sensors.map((sensor) => sensor.id === sensorId ? update(copySensor(sensor)) : copySensor(sensor));
 }
 
-function localAlert(state: EnvironmentState, sensorId: string): Alert {
-  return {
-    id: `${state.definition.id}-${sensorId}-local`,
-    environmentId: state.definition.id,
-    sensorIds: [sensorId],
-    kind: "local-anomaly",
-    severity: "warning",
-    message: `Local anomaly detected at ${sensorId}. Awaiting neighbour consensus.`,
-    confirmed: false,
-    createdAt: SIMULATION_TIME,
-    source: "simulation",
-  };
-}
-
 function obstructionHazard(state: EnvironmentState, edgeId: string): Hazard {
   const routeEdge = state.definition.routeGraph.edges.find((edge) => edge.id === edgeId);
   const point = routeEdge?.points[Math.floor((routeEdge?.points.length ?? 1) / 2)] ?? [0, 0, 0];
@@ -89,6 +75,8 @@ export function applySimulationAction(
   if (action.type === "reset") return createInitialEnvironmentState(state.definition);
 
   if (action.type === "increase-temperature") {
+    const sourceSensor = state.sensors.find((sensor) => sensor.id === action.sensorId);
+    if (!sourceSensor || sourceSensor.status === "offline") return state;
     const sensors = updateSensor(state.sensors, action.sensorId, (sensor) => ({
       ...sensor,
       status: sensor.status === "critical" ? "critical" : "warning",
@@ -109,18 +97,9 @@ export function applySimulationAction(
     return next;
   }
 
-  if (action.type === "simulate-anomaly") {
-    const sensors = updateSensor(state.sensors, action.sensorId, (sensor) => ({
-      ...sensor,
-      status: "warning",
-      reading: { ...sensor.reading, anomalyScore: 0.84 },
-    }));
-    return finalize({ ...state, alerts: [...state.alerts, localAlert(state, action.sensorId)] }, sensors, action.sensorId);
-  }
-
   if (action.type === "confirm-fire") {
     const source = state.sensors.find((sensor) => sensor.id === action.sensorId);
-    if (!source) return state;
+    if (!source || source.status === "offline") return state;
     if (state.hazards.some((hazard) => hazard.kind === "simulated-fire" && hazard.sourceSensorId === action.sensorId)) return state;
     const agreeingNeighbours = Math.max(2, Math.ceil(source.neighbourIds.length / 2));
     const sensorIds = new Set([action.sensorId, ...source.neighbourIds.slice(0, agreeingNeighbours)]);
@@ -183,8 +162,25 @@ export function applySimulationAction(
     return { ...state, blockedEdgeIds, hazards };
   }
 
+  if (action.type === "enable-node") {
+    const previous = state.disabledSimulationSensors?.[action.sensorId];
+    if (!previous) return state;
+    const disabledSimulationSensors = { ...state.disabledSimulationSensors };
+    delete disabledSimulationSensors[action.sensorId];
+    const sensors = updateSensor(state.sensors, action.sensorId, () => copySensor(previous));
+    const connection = state.connection === "reconnecting" && sensors.every((sensor) => sensor.status !== "offline")
+      ? "connected" : state.connection;
+    return finalize({ ...state, disabledSimulationSensors, connection }, sensors, state.consensus?.sensorId);
+  }
+
   if (action.type === "disable-node" || action.type === "network-failure") {
     const ids = action.type === "disable-node" ? [action.sensorId] : action.sensorIds;
+    const disabledSimulationSensors = { ...state.disabledSimulationSensors };
+    for (const sensor of state.sensors) {
+      if (ids.includes(sensor.id) && sensor.status !== "offline") {
+        disabledSimulationSensors[sensor.id] = copySensor(sensor);
+      }
+    }
     const sensors = state.sensors.map((item) => ids.includes(item.id)
       ? {
         ...copySensor(item),
@@ -193,7 +189,7 @@ export function applySimulationAction(
         reading: { ...item.reading, temperature: null, humidity: null, anomalyScore: null },
       }
       : copySensor(item));
-    return finalize({ ...state, connection: action.type === "network-failure" ? "reconnecting" : state.connection }, sensors);
+    return finalize({ ...state, disabledSimulationSensors, connection: action.type === "network-failure" ? "reconnecting" : state.connection }, sensors, state.consensus?.sensorId);
   }
 
   return state;
