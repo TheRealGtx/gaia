@@ -3,7 +3,8 @@
 Everything needed to bring the system up, in order: network, nodes, dashboard,
 AI, then the demo itself. The setup described here is the current one: the
 boards on the Windows hotspot of the laptop. For the version with no access
-point at all (GaiaMesh, laptop on Linux), see `HANDOFF-linux.md`.
+point at all (GaiaMesh, laptop on Linux), the commands are in
+[`network/README.md`](network/README.md) and the background in `HANDOFF-linux.md`.
 
 ---
 

@@ -44,6 +44,9 @@ the switch its log just says `network changed: now sending to ... 10.77.0.255`.
 
 ## The procedure
 
+The same steps as a plain command checklist, with a fourth board and a
+45-minute test window: [`network/README.md`](network/README.md).
+
 **Phase 1, Linux with internet** (any normal Wi-Fi). On GaiaMesh the laptop has
 no internet, because it has one radio, so do this first:
 
