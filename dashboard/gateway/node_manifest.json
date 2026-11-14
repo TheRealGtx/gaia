@@ -1,0 +1,25 @@
+{
+  "nodes": {
+    "1": {
+      "sensor_id": "A-01",
+      "environment_id": "building-a",
+      "name": "Reception",
+      "position": [-12, 1.15, 7],
+      "neighbours": [2]
+    },
+    "2": {
+      "sensor_id": "A-02",
+      "environment_id": "building-a",
+      "name": "Office A",
+      "position": [-3, 1.15, 7],
+      "neighbours": [1, 3]
+    },
+    "3": {
+      "sensor_id": "A-03",
+      "environment_id": "building-a",
+      "name": "Meeting Room",
+      "position": [-12, 5.95, 7],
+      "neighbours": [2]
+    }
+  }
+}
