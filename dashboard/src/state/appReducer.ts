@@ -11,7 +11,7 @@ import { createInitialEnvironmentState } from "../simulation/engine.ts";
 import { LIVE_SENSOR_IDS } from "../live/liveManifest.ts";
 import type { ColorTheme, ThemePreference } from "./theme.ts";
 
-export type AppPage = "Overview" | "Environments" | "Sensor Logs";
+export type AppPage = "Overview" | "Live field" | "Environments" | "Sensor Logs";
 export type MobilePanel = "map" | "sensors" | "analysis";
 export type TelemetryView = "telemetry" | "sensors";
 
