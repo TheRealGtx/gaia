@@ -1,4 +1,4 @@
 # [A1] UNVERIFIED: copy the exact fields from an App Lab example app.yaml if this one is rejected
-name: EchoField node
-description: Reads Modulino Thermo, drives Modulino Pixels, feeds the EchoField node model
+name: Gaia node
+description: Reads Modulino Thermo, drives Modulino Pixels, sends readings to node.py on the board host
 icon: 🔥
