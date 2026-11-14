@@ -56,7 +56,7 @@ UNKNOWN     = 99                                         # "I don't know where t
 
 # --------------------------------------------------------- shared state ----
 
-state  = {"anomaly": 0.0, "dist": UNKNOWN, "alert": False, "escape_to": None}
+state  = {"anomaly": 0.0, "dist": UNKNOWN, "via": None, "alert": False, "escape_to": None}
 params = {"mu": 0.0, "sigma": 1.0, "n": 0}    # overwritten by Chuqi's get_params()
 table  = {}                                   # neighbour id -> (message, last_seen)
 lock   = threading.Lock()                     # protects state, params and table
@@ -126,8 +126,18 @@ def send_loop():
 
 def recv_loop():
     s = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
-    s.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
-    s.bind(("", PORT))
+    if MODE != "unicast":
+        # On one machine several programs may listen to the broadcast port
+        # (a node and Pietro's dashboard), so sharing it is allowed there.
+        s.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
+    try:
+        s.bind(("", PORT))
+    except OSError as e:
+        # Without this check two nodes with the same id share the port and
+        # each receives only part of the messages: very hard to debug.
+        print("cannot listen on port %d: %s" % (PORT, e), flush=True)
+        print("is another node with NODE_ID=%d already running?" % NODE_ID, flush=True)
+        os._exit(1)                                 # kills the whole node, not just this thread
     while running.is_set():
         try:
             data, _ = s.recvfrom(2048)
@@ -156,10 +166,20 @@ def update():
         nb = alive_locked()
         # --- gradient: 0 at the hazard, otherwise min(neighbours) + 1 ---
         if state["anomaly"] > ALERT_ON:
-            state["dist"] = 0
+            state["dist"], state["via"] = 0, None       # I am the hazard
         else:
-            best = min((int(m.get("dist", UNKNOWN)) for m in nb), default=UNKNOWN - 1)
-            state["dist"] = min(best + 1, UNKNOWN)
+            # Only trust a neighbour whose own distance does NOT come from me:
+            # otherwise two nodes keep adding 1 to each other for ever
+            # (count to infinity: 2, 4, 6 ... 99). A neighbour at UNKNOWN has
+            # nothing to offer either.
+            offers = [m for m in nb
+                      if m.get("via") != NODE_ID and int(m.get("dist", UNKNOWN)) < UNKNOWN]
+            if offers:
+                best = min(offers, key=lambda m: int(m["dist"]))
+                state["dist"] = min(int(best["dist"]) + 1, UNKNOWN)
+                state["via"] = best["id"]
+            else:
+                state["dist"], state["via"] = UNKNOWN, None
         # --- consensus alert with hysteresis: no flicker, no lone noisy node ---
         agreeing = sum(1 for m in nb if float(m.get("anomaly", 0.0)) > ALERT_ON)
         if state["anomaly"] > ALERT_ON and agreeing >= AGREE_MIN:
@@ -223,15 +243,15 @@ def status_line(t0):
              (nid, m.get("dist", "?"), float(m.get("anomaly", 0)), age,
               " ALERT" if m.get("alert") else "")
              for nid, m, age in seen]
-    return "[%6.1fs] id=%d anom=%.2f dist=%-2d alert=%-3s esc=%-4s | %s" % (
-        time.time() - t0, NODE_ID, own["anomaly"], own["dist"],
+    return "[%6.1fs] id=%d anom=%.2f dist=%-2d via=%-4s alert=%-3s esc=%-4s | %s" % (
+        time.time() - t0, NODE_ID, own["anomaly"], own["dist"], own["via"],
         "ON" if own["alert"] else "off", own["escape_to"],
         "  ".join(parts) if parts else "(no alive neighbour)")
 
 if __name__ == "__main__":
     print("node %d  mode=%s port=%d neighbours=%s  model=%s"
           % (NODE_ID, MODE, PORT, sorted(NEIGHBORS),
-             "Chuqi's" if anomaly_score else "fake anomaly"))
+             "Chuqi's" if anomaly_score else "fake anomaly"), flush=True)
     for fn in (send_loop, recv_loop, param_loop, key_loop):
         threading.Thread(target=fn, daemon=True).start()
     t0 = time.time()

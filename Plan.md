@@ -11,8 +11,9 @@ Time reference: it is Saturday 10:00 now, the deadline is Sunday 10:00. **Goal: 
 Fix these "contracts" right away so you can work in parallel without blocking each other:
 
 - **UDP message** (JSON, broadcast on port 5005, one per node per second), as actually sent by `aggregate/node.py`:
-  `{"id": 2, "anomaly": 0.12, "dist": 3, "alert": false, "escape_to": 3, "mu": 22.4, "sigma": 1.1, "n": 120, "ts": 1731574800.2}`
-  `escape_to` is an extra field (it can be `null`): whoever reads the messages can ignore it.
+  `{"id": 2, "anomaly": 0.12, "dist": 3, "via": 1, "alert": false, "escape_to": 3, "mu": 22.4, "sigma": 1.1, "n": 120, "ts": 1731574800.2}`
+  `via` = the neighbour this node took its distance from (`null` if it is the hazard or knows nothing). It is what stops two nodes from adding 1 to each other for ever; for the dashboard it is also the arrow "where the alarm came from".
+  `via` and `escape_to` are extra fields and can be `null`: whoever reads the messages can ignore them.
 - **Chuqi provides, in `sensing_ml/model.py`**:
   - `anomaly_score(sensor_values) -> float between 0 and 1`
   - `get_params()` / `merge_params(others)` with `mu`, `sigma`, `n`
@@ -28,7 +29,7 @@ Fix these "contracts" right away so you can work in parallel without blocking ea
 | Time | Task |
 |---|---|
 | 10:30-12:30 | ~~UDP communication (send, receive, neighbour table with timeout)~~ **done**, tested on one laptop in unicast mode |
-| 12:30-14:00 | ~~Gradient: node in anomaly = 0, all others = minimum of neighbours + 1~~ **done** with the fake anomaly (0-1-2 on a line of 3) |
+| 12:30-14:00 | ~~Gradient: node in anomaly = 0, all others = minimum of neighbours + 1~~ **done** with the fake anomaly (0-1-2 on a line of 3), loop-free thanks to `via` |
 | 14:00-15:30 | Move the code onto the real boards (with Pietro/Chuqi), on your own local router. **Checkpoint 1** |
 | 15:30-17:00 | ~~Consensus with hysteresis (alert on above 0.7 with `AGREE_MIN` agreeing neighbours, **default 1**, raise it to 2 when there are 3+ boards; off only below 0.4 with no neighbour in anomaly) and missing node~~ **done** in simulation: node killed = distances recomputed in ~5 s, it rejoins by itself |
 | 17:00-19:00 | Exchange and averaging of model parameters between neighbours (with Chuqi): the node side is ready (`merge_params` every 15 s in its own thread, so the 1 s heartbeat is never delayed), tested with a stub only. Cold start demo |
