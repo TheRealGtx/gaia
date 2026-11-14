@@ -18,7 +18,10 @@ Run (gateway already running; Ollama with `ollama pull gemma3:1b` for Gemma):
     python3 gemma/report.py
 Settings (environment, all optional):
     GATEWAY   http://localhost:8000      Pietro's gateway
-    OLLAMA    http://localhost:11434     where Gemma runs (can be a board's IP)
+    OLLAMA    http://localhost:11434     where Gemma runs. Several, comma separated,
+              e.g. http://192.168.137.25:11434,http://192.168.137.180:11434:
+              the first one that answers writes, so one board going down does
+              not take Gemma with it
     MODEL     gemma3:1b
     EVERY     10        seconds between reports (only sent when something changed)
     GEMMA_TIMEOUT 120   seconds to wait for Gemma (a UNO Q is slow, a laptop is not)
@@ -34,7 +37,9 @@ import urllib.request
 from websockets.sync.client import connect
 
 GATEWAY = os.environ.get("GATEWAY", "http://localhost:8000").rstrip("/")
-OLLAMA = os.environ.get("OLLAMA", "http://localhost:11434").rstrip("/")
+OLLAMAS = [h.strip().rstrip("/") for h in
+           os.environ.get("OLLAMA", "http://localhost:11434").split(",") if h.strip()]
+OLLAMA = ", ".join(OLLAMAS)                               # for the banner
 MODEL = os.environ.get("MODEL", "gemma3:1b")
 EVERY = float(os.environ.get("EVERY", 10))
 TIMEOUT = float(os.environ.get("GEMMA_TIMEOUT", 120))   # a UNO Q needs tens of seconds
@@ -94,10 +99,38 @@ def ollama(prompt, num_predict=60):
                        "keep_alive": "2h",        # stay in memory: loading is the slow part
                        "options": {"temperature": 0.2, "num_predict": num_predict,
                                    "num_ctx": 512}}).encode()
-    req = urllib.request.Request(OLLAMA + "/api/generate", body,
-                                 {"content-type": "application/json"})
-    with urllib.request.urlopen(req, timeout=TIMEOUT) as r:
-        return json.loads(r.read()).get("response", "")
+    last = None
+    for host in alive_hosts():
+        req = urllib.request.Request(host + "/api/generate", body,
+                                     {"content-type": "application/json"})
+        try:
+            with urllib.request.urlopen(req, timeout=TIMEOUT) as r:
+                text = json.loads(r.read()).get("response", "")
+            if host != _good["host"]:
+                print("   (Gemma now answering from %s)" % host, flush=True)
+            _good["host"] = host
+            return text
+        except Exception as e:                  # this board failed: try the next one
+            print("   (Gemma at %s failed: %s)" % (host, e), flush=True)
+            last = e
+    raise last or OSError("no Gemma host is answering")
+
+
+_good = {"host": None}                          # the host that answered last
+
+
+def alive_hosts():
+    """The Gemma hosts that answer a 2-second ping, the last good one first.
+    A board that is switched off is skipped in 2 s, not after TIMEOUT."""
+    order = sorted(OLLAMAS, key=lambda h: h != _good["host"])
+    alive = []
+    for host in order:
+        try:
+            urllib.request.urlopen(host + "/api/version", timeout=2).read()
+            alive.append(host)
+        except Exception:
+            pass
+    return alive
 
 
 def gemma(nodes, fallback):
@@ -180,14 +213,20 @@ def rewrite(env_id, nodes, text, last_key):
 
 
 def warm_up():
-    """Load the model before the demo needs it (the first call is the slowest)."""
+    """Load the model on every Gemma host before the demo needs it (the first
+    call is the slowest), so a switch to a backup board is not slow either."""
     with busy:
-        t0 = time.time()
-        try:
-            ollama("Say OK.", num_predict=3)
-            print("   (Gemma ready, warm-up took %.1fs)" % (time.time() - t0), flush=True)
-        except Exception as e:
-            print("   (Gemma warm-up failed: %s)" % e, flush=True)
+        for host in OLLAMAS:
+            t0 = time.time()
+            body = json.dumps({"model": MODEL, "prompt": "Say OK.", "stream": False,
+                               "keep_alive": "2h", "options": {"num_predict": 3}}).encode()
+            req = urllib.request.Request(host + "/api/generate", body,
+                                         {"content-type": "application/json"})
+            try:
+                urllib.request.urlopen(req, timeout=TIMEOUT).read()
+                print("   (Gemma ready at %s, %.1fs)" % (host, time.time() - t0), flush=True)
+            except Exception as e:
+                print("   (Gemma not available at %s: %s)" % (host, e), flush=True)
 
 if __name__ == "__main__":
     main()
