@@ -85,7 +85,8 @@ how we rehearse a node burning out without setting anything on fire.
 Three more programs live in `aggregate/`: `listen.py` prints every packet on the
 network and sends nothing, `netcheck.py` says why nodes cannot hear each other,
 and `check_dashboard.py` proves the dashboard still accepts what the nodes
-actually send.
+actually send (with the boards off: it refuses to mix fake nodes into a live
+field).
 
 ## Two things worth knowing before reading the code
 

@@ -53,6 +53,41 @@ def gateway():
     s.close()
 
 
+def field_is_live(seconds=2.5):
+    """True when real nodes are already sending heartbeats on UDP 5005.
+
+    This script puts nodes with ids 1, 2, 3 on that same port. With the boards
+    on the air (the laptop hosting their hotspot hears them all) they would
+    hear copies of themselves, and fake neighbours' distances would enter the
+    real gradient: the live field could show a fire that is not there, during
+    the demo. So it looks first.
+    """
+    s = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
+    s.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
+    try:
+        s.bind(("", 5005))
+    except OSError:
+        return False
+    s.settimeout(0.3)
+    end = time.time() + seconds
+    try:
+        while time.time() < end:
+            try:
+                m = json.loads(s.recvfrom(4096)[0])
+            except (socket.timeout, ValueError, OSError):
+                continue
+            if isinstance(m, dict) and "id" in m and "dist" in m:
+                return True
+    finally:
+        s.close()
+    return False
+
+
+LIVE_FIELD = ("real boards are on the air on UDP 5005: fake nodes with the same ids "
+              "would mix into the live field. Turn the boards off first, or run it "
+              "anyway with FORCE=1.")
+
+
 def banner(sensors):
     """alertBannerModel.ts, in Python, so we judge what the screen will say."""
     if sensors and all(s["status"] == "offline" for s in sensors):
@@ -75,6 +110,9 @@ def look(label):
     print("%-22s %s" % ("", "banner: %s" % banner(sensors)))
     return sensors, banner(sensors)
 
+
+if os.environ.get("FORCE") != "1" and field_is_live():
+    sys.exit(LIVE_FIELD)
 
 threading.Thread(target=gateway, daemon=True).start()
 

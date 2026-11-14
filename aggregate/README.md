@@ -129,6 +129,12 @@ python3 netcheck.py                   # why the nodes cannot hear each other
 the interfaces, the addresses it would send to, what it hears and what that
 means — run it on every machine at once when something is silent.
 
+`sim.py --broadcast` and `check_dashboard.py` start nodes with ids 1, 2, 3 on
+UDP 5005, the same ids and port as the boards. With the boards on the air those
+fake nodes would mix into the real gradient, so both listen first and refuse
+to start when real heartbeats are there (`FORCE=1` to run anyway). Plain
+`sim.py` stays on 127.0.0.1 and is always safe.
+
 ## Two things that surprise people
 
 **A single hazard raises no `alert`.** With `AGREE_MIN=1` a source needs a

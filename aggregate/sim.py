@@ -33,8 +33,10 @@ Default is unicast on 127.0.0.1 (no traffic on your network). --broadcast puts
 the real thing on UDP 5005, where a dashboard or `listen.py` can watch.
 """
 import argparse
+import json
 import os
 import re
+import socket
 import subprocess
 import sys
 import threading
@@ -132,6 +134,41 @@ class Field:
             for nid in sorted(s))
         print("%-26s %s" % (label, row or "(no node reporting)"), flush=True)
         return s
+
+
+def field_is_live(seconds=2.5):
+    """True when real nodes are already sending heartbeats on UDP 5005.
+
+    This script puts nodes with ids 1, 2, 3 on that same port. With the boards
+    on the air (the laptop hosting their hotspot hears them all) they would
+    hear copies of themselves, and fake neighbours' distances would enter the
+    real gradient: the live field could show a fire that is not there, during
+    the demo. So it looks first.
+    """
+    s = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
+    s.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
+    try:
+        s.bind(("", 5005))
+    except OSError:
+        return False
+    s.settimeout(0.3)
+    end = time.time() + seconds
+    try:
+        while time.time() < end:
+            try:
+                m = json.loads(s.recvfrom(4096)[0])
+            except (socket.timeout, ValueError, OSError):
+                continue
+            if isinstance(m, dict) and "id" in m and "dist" in m:
+                return True
+    finally:
+        s.close()
+    return False
+
+
+LIVE_FIELD = ("real boards are on the air on UDP 5005: fake nodes with the same ids "
+              "would mix into the live field. Turn the boards off first, or run it "
+              "anyway with FORCE=1.")
 
 
 def wait(seconds, field=None, label=None):
@@ -293,6 +330,8 @@ if __name__ == "__main__":
         sys.exit(0)
     if args.nodes < 2:
         ap.error("a field needs at least two nodes")
+    if args.broadcast and os.environ.get("FORCE") != "1" and field_is_live():
+        sys.exit(LIVE_FIELD)
     if args.scenario == "reroute" and (args.topology != "ring" or args.nodes < 4):
         ap.error("reroute needs --topology ring and at least four nodes: "
                  "that is the whole point of it")
