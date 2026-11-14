@@ -139,12 +139,13 @@ def check(ok, message, failures):
         failures.append(message)
 
 
-def run(scenario, count, broadcast, keep):
+def run(scenario, count, broadcast, keep, agree_min=1):
     failures = []
     hot = {"coldstart": (1,)}.get(scenario, ())
-    field = Field(count, broadcast=broadcast, hot=hot)
-    print("scenario %s, %d nodes in a line, %s\n"
-          % (scenario, count, "broadcast on 5005" if broadcast else "unicast on 127.0.0.1"))
+    field = Field(count, broadcast=broadcast, hot=hot, agree_min=agree_min)
+    print("scenario %s, %d nodes in a line, AGREE_MIN=%d, %s\n"
+          % (scenario, count, agree_min,
+             "broadcast on 5005" if broadcast else "unicast on 127.0.0.1"))
     try:
         for nid in range(1, count + 1):
             field.start(nid)
@@ -184,8 +185,15 @@ def run(scenario, count, broadcast, keep):
             field.say(1, "a")
             field.say(2, "a")                           # two adjacent sources
             s = wait(5, field, "nodes 1 and 2 in anomaly")
-            check(s[1]["alert"] and s[2]["alert"],
-                  "both sources raise the consensus alert", failures)
+            if agree_min <= 1:
+                check(s[1]["alert"] and s[2]["alert"],
+                      "both sources raise the consensus alert", failures)
+            else:
+                # In a line only the middle nodes have two neighbours, so with
+                # AGREE_MIN=2 the ends can never alert, whatever you heat.
+                check(not s[1]["alert"],
+                      "with AGREE_MIN=%d the end node cannot alert, by design"
+                      % agree_min, failures)
             check(all(not s[n]["alert"] for n in s if n > 2),
                   "nodes that are not in anomaly do not", failures)
             field.say(1, "0")
@@ -226,6 +234,8 @@ if __name__ == "__main__":
     ap.add_argument("--nodes", type=int, default=3)
     ap.add_argument("--broadcast", action="store_true",
                     help="put the packets on UDP 5005 for a dashboard to watch")
+    ap.add_argument("--agree-min", type=int, default=1,
+                    help="neighbours that must agree before a node alerts (default 1)")
     ap.add_argument("--keep", action="store_true", help="leave the field running")
     ap.add_argument("--list", action="store_true", help="print the scenarios")
     args = ap.parse_args()
@@ -234,4 +244,4 @@ if __name__ == "__main__":
         sys.exit(0)
     if args.nodes < 2:
         ap.error("a field needs at least two nodes")
-    sys.exit(run(args.scenario, args.nodes, args.broadcast, args.keep))
+    sys.exit(run(args.scenario, args.nodes, args.broadcast, args.keep, args.agree_min))

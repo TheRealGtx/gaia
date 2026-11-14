@@ -47,6 +47,7 @@ readings: it tests the whole chain without hardware.
 
 import ipaddress
 import json
+import math
 import os
 import socket
 import subprocess
@@ -97,6 +98,11 @@ AGREE_MIN   = int(os.environ.get("AGREE_MIN", 1))        # agreeing neighbours n
 FAKE_SENSOR = os.environ.get("FAKE_SENSOR", "1").lower() not in ("0", "false", "no")
 ANOMALY_SRC = os.environ.get("ANOMALY_SRC", "auto").lower()   # auto | model | fake
 UNKNOWN     = 99                                         # "I don't know where the hazard is"
+# Unique per process, sent as `boot`. In broadcast mode a node hears its own
+# packets, so a message carrying my id is normal; one carrying my id and a
+# DIFFERENT boot token means a second board was flashed with the same NODE_ID,
+# which otherwise shows up as distances that make no sense and nothing else.
+BOOT        = "%04x" % (os.getpid() & 0xFFFF)
 
 # --------------------------------------------------------- shared state ----
 
@@ -104,6 +110,7 @@ state  = {"anomaly": 0.0, "dist": UNKNOWN, "via": None, "alert": False, "escape_
 params = {"mu": 0.0, "sigma": 1.0, "n": 0}    # overwritten by Chuqi's get_params()
 table  = {}                                   # neighbour id -> (message, last_seen)
 drops  = {}                                   # id -> messages heard but not in NEIGHBORS
+clash  = {"said": False}                      # another node using my id: say it once
 peers  = {}                                   # id -> last {mu, sigma, n} seen from it
 lock   = threading.Lock()                     # protects state, params and table
 fake   = {"anomaly": float(os.environ.get("ANOMALY", 0.0))}   # keyboard-driven test value
@@ -145,9 +152,12 @@ def clean_reading(d):
             out["fake"] = bool(v)
             continue
         try:
-            out[str(k)] = round(float(v), 2)
+            f = float(v)
         except (TypeError, ValueError):
             continue
+        if not math.isfinite(f):                    # NaN reaches the wire as
+            continue                                # invalid JSON and the
+        out[str(k)] = round(f, 2)                   # dashboard drops the packet
     return out or None
 
 def fake_reading(a):
@@ -239,7 +249,13 @@ def get_anomaly():
         try:
             if reading is None:                     # ANOMALY_SRC=model, no hardware
                 reading = fake_reading(fake["anomaly"])
-            a = max(0.0, min(1.0, float(anomaly_score(reading))))
+            a = float(anomaly_score(reading))
+            if not math.isfinite(a):
+                # json.dumps would write NaN, which is not JSON: the gateway
+                # rejects the packet and the node vanishes from the dashboard
+                # while its LEDs keep working. Fall back instead.
+                raise ValueError("anomaly_score returned %r" % (a,))
+            a = max(0.0, min(1.0, a))
             sensor["last"] = clean_reading(reading)
             return a
         except Exception as e:                      # model problems must not stop the node
@@ -397,7 +413,7 @@ def send_loop():
     while running.is_set():
         now = time.time()
         with lock:
-            msg = {"id": NODE_ID, **state,
+            msg = {"id": NODE_ID, "boot": BOOT, **state,
                    **reading_fields(sensor["last"]), **byte_counters(),
                    "ts": now}
             if now >= next_params:
@@ -479,8 +495,18 @@ def recv_loop():
         except (ValueError, OSError):               # invalid JSON or socket hiccup
             continue
         mid = m.get("id")
-        if not isinstance(mid, int) or mid == NODE_ID:
-            continue                                # ignore myself and junk
+        if not isinstance(mid, int):
+            continue                                # junk
+        if mid == NODE_ID:
+            # Mine, looped back by the broadcast - unless it came from another
+            # process, in which case two boards share an id and the whole field
+            # is quietly wrong.
+            if m.get("boot") not in (BOOT, None) and not clash["said"]:
+                clash["said"] = True
+                print("WARNING: another node is using NODE_ID=%d (boot %s, mine %s). "
+                      "Give each board its own id: the distances cannot be trusted "
+                      "until you do." % (NODE_ID, m.get("boot"), BOOT), flush=True)
+            continue
         if mid not in NEIGHBORS:
             # Heard, but not in my NEIGHBORS: on real boards this is the usual
             # reason why "the others do not see the alarm". Counted and shown in
