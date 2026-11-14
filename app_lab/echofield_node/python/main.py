@@ -7,7 +7,9 @@ This app owns the hardware and nothing else. The same file runs on every board.
 Once a second it reads the Modulino Thermo, sends {"temp": C, "hum": %} to
 aggregate/node.py running on the board's HOST OS, and gets that node's state
 back in the same exchange ({"dist", "alert", ...}). The LEDs show that state,
-with the same colours as the dashboard:
+with the same colours as the dashboard (board RGB LEDs, and Modulino Pixels if
+plugged in), and the LED matrix shows an arrow moving toward the safest
+neighbour (escape_to), i.e. where to run. Colours:
 
     red    dist 0 or alert   this board is the hazard
     amber  dist 1            one hop from the hazard
@@ -135,6 +137,31 @@ def colour():
     return (0, 40, 0)            # green: far from the hazard
 
 
+def show_state():
+    """The LED matrix shows where to run: an arrow toward escape_to.
+
+    Boards stand in a line, ids increasing from left to right (1-2-3), so
+    escaping to a higher id means "run right". ARROW_FLIP=1 if the line is set
+    up the other way round on the table."""
+    if time.time() - _heard["at"] > NODE_SILENT:
+        d, direction = -1, 0
+    else:
+        try:
+            d = 0 if _state.get("alert") else int(_state.get("dist", UNKNOWN))
+        except (TypeError, ValueError):
+            d = UNKNOWN
+        direction = 0
+        esc, me = _state.get("escape_to"), _state.get("id")
+        if d < UNKNOWN and isinstance(esc, int) and isinstance(me, int) and esc != me:
+            direction = 1 if esc > me else -1
+            if os.environ.get("ARROW_FLIP") == "1":
+                direction = -direction
+    try:
+        Bridge.call("show_state", int(d), int(direction))
+    except Exception:
+        pass                     # older sketch without show_state: LEDs still work
+
+
 # ---- App Lab loop (main thread, the only code that touches the Bridge) -----
 def loop():
     start = time.time()
@@ -156,10 +183,12 @@ def loop():
         if time.time() - _heard["at"] > NODE_SILENT:
             line += "  | no answer from node.py at %s:%d" % (HOST, PORT)
         else:
-            line += "  | node %s anom=%s dist=%s alert=%s" % (
+            line += "  | node %s anom=%s dist=%s alert=%s escape_to=%s" % (
                 _state.get("id", "?"), _state.get("anomaly", "?"),
-                _state.get("dist", "?"), "ON" if _state.get("alert") else "off")
+                _state.get("dist", "?"), "ON" if _state.get("alert") else "off",
+                _state.get("escape_to"))
         set_color(*colour())
+        show_state()
         print(line, flush=True)
     time.sleep(max(0.0, 1.0 - (time.time() - start)))
 
