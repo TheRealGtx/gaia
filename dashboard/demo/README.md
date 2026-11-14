@@ -11,4 +11,4 @@ python3 demo/fake_nodes.py --scenario failure --host 127.0.0.1 --port 5005
 python3 demo/fake_nodes.py --scenario rejoin --host 127.0.0.1 --port 5005
 ```
 
-Use `--count 20` for a bounded run. The sender only produces observer heartbeats; it never sends control commands to physical nodes. Stop it before starting the Arduino broadcasts so the fake IDs do not compete with real IDs 1–3.
+Use `--count 20` for a bounded run. The sender only produces observer heartbeats; it never sends control commands to physical nodes. Stop it before starting the Arduino broadcasts so the fake IDs do not compete with real IDs 1–2.

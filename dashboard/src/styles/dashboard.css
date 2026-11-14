@@ -39,7 +39,8 @@
 .sensor-pulse--warning { background: var(--warning); }.sensor-pulse--critical { background: var(--critical); animation: pulse 1.4s infinite; }.sensor-pulse--offline,.sensor-pulse--stale,.sensor-pulse--unknown { background: var(--offline); }
 .sensor-card__live-detail { display: grid; gap: 4px; margin: -2px 0 9px; padding: 8px; border-radius: 9px; background: var(--surface-subtle); color: var(--text-secondary); font-size: 9px; }.sensor-card__live-detail strong { color: var(--text); }.simulated-reading { color: var(--warning-dark); font-weight: 800; text-transform: uppercase; letter-spacing: .04em; }
 .sensor-card__model { display: flex; align-items: baseline; gap: 4px; flex-wrap: wrap; }.sensor-card__model small { color: var(--text-muted); font-size: inherit; }
-.simulated-reading--card { display: block; margin: -2px 0 9px; font-size: 8px; }
+.sensor-card__reading-value { display: flex; align-items: baseline; flex-wrap: wrap; gap: 4px; }
+.simulated-reading--chip { padding: 2px 4px; border: 1px solid var(--warning-border); border-radius: 999px; background: var(--warning-bg); font-size: 8px; line-height: 1; }
 .sensor-card__readings { display: grid; grid-template-columns: repeat(3,1fr); gap: 12px; margin: 11px 0 9px; }
 .sensor-card__readings > span { display: grid; gap: 2px; }.sensor-card__readings small { color: var(--text-muted); font-size: 9px; text-transform: uppercase; }.sensor-card__readings strong { font-size: 16px; }
 .sensor-card__meta { padding-top: 8px; border-top: 1px solid var(--border-soft); display: flex; align-items: center; gap: 12px; color: var(--text-muted); font-size: 10px; }

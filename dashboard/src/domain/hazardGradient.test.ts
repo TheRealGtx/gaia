@@ -4,6 +4,7 @@ import {
   deriveHazardGradient,
   deriveLiveHazardGradient,
   gradientFieldColor,
+  liveGradientStateLabel,
   selectSimulatedHazardSource,
 } from "./hazardGradient.ts";
 import { ENVIRONMENT_BY_ID } from "../config/environments.ts";
@@ -52,11 +53,30 @@ describe("hazard gradient", () => {
 
   it("uses network-reported distance in live mode and leaves 99 unknown", () => {
     const model = deriveLiveHazardGradient([
-      { sensorId: "source", distance: 0, offline: false },
-      { sensorId: "safe", distance: 2, offline: false },
-      { sensorId: "unknown", distance: 99, offline: false },
+      { sensorId: "source", distance: 0, offline: false, alert: false },
+      { sensorId: "safe", distance: 2, offline: false, alert: false },
+      { sensorId: "unknown", distance: 99, offline: false, alert: false },
     ], [{ sourceId: "source", targetId: "safe", active: true }]);
     assert.deepEqual(Object.fromEntries(model.nodes.map((node) => [node.sensorId, node.level])), { source: 0, safe: 2, unknown: null });
     assert.equal(model.maxLevel, 2);
+  });
+
+  it("treats a network alert as a hazard source even when distance is 99", () => {
+    const model = deriveLiveHazardGradient([
+      { sensorId: "alert", distance: 99, offline: false, alert: true },
+      { sensorId: "split", distance: 99, offline: false, alert: false },
+    ], []);
+
+    assert.equal(model.sourceId, "alert");
+    assert.deepEqual(Object.fromEntries(model.nodes.map((node) => [node.sensorId, node.level])), {
+      alert: 0,
+      split: null,
+    });
+  });
+
+  it("describes distance 99 as nominal until a hazard source exists", () => {
+    assert.equal(liveGradientStateLabel(null, false, false), "nominal, no active hazard");
+    assert.equal(liveGradientStateLabel(null, false, true), "hazard path unknown");
+    assert.equal(liveGradientStateLabel(null, true, false), "offline");
   });
 });

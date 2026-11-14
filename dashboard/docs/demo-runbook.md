@@ -8,7 +8,7 @@
 | Gaia gateway | UDP `0.0.0.0:5005` + HTTP/WebSocket `0.0.0.0:8000` | Read-only normalization and browser stream |
 | Gaia frontend | HTTP `:3000` | Next.js dashboard |
 
-The physical manifest is `gateway/node_manifest.json`: node `1` → `A-01`, node `2` → `A-02`, node `3` → `A-03`. Live mode renders only these three nodes.
+The physical manifest is `gateway/node_manifest.json`: node `1` → `A-01` and node `2` → `A-02`. Live mode renders only these two active boards.
 
 ## Startup order
 
@@ -33,12 +33,12 @@ The physical manifest is `gateway/node_manifest.json`: node `1` → `A-01`, node
 
 5. Open `http://localhost:3000`, choose **Live**, and keep **Building A** selected.
 
-For a bounded laptop-only rehearsal, run `python3 demo/fake_nodes.py --scenario nominal --count 30`. It follows the real 15-heartbeat parameter cadence. Stop it before starting Arduino broadcasts so fake IDs do not compete with physical IDs 1–3.
+For a bounded laptop-only rehearsal, run `python3 demo/fake_nodes.py --scenario nominal --count 30`. It follows the real 15-heartbeat parameter cadence. Stop it before starting Arduino broadcasts so fake IDs do not compete with physical IDs 1–2.
 
 ## What the operator must see
 
-- Exactly three live nodes; no field of unused grey sensors.
-- `dist 0` red, `dist 1` amber, `dist 2–98` green, `dist >= 99` grey/unknown.
+- Exactly two live nodes; no unused third grey sensor.
+- `dist 0` red, `dist 1` amber, and `dist 2–98` green. `dist >= 99` is green with no active hazard and grey/unknown only when another node reports a hazard.
 - Evacuation guidance comes from `escape_to`, not from choosing the largest `dist` in the browser.
 - A node becomes offline four seconds after its last gateway receipt; the last reading remains visible.
 - `simulated: true` is labeled **Simulated input · not measured**.
@@ -49,12 +49,12 @@ For a bounded laptop-only rehearsal, run `python3 demo/fake_nodes.py --scenario 
 
 ## Three-minute failure rehearsal
 
-- [ ] Nominal: all three heartbeats visible and the banner says `ALL CLEAR`.
-- [ ] Hazard: source becomes `dist 0`; neighbours propagate `1`, then `2`.
+- [ ] Nominal: both heartbeats visible and the banner says `ALL CLEAR`.
+- [ ] Hazard: the source becomes `dist 0` and the second board reports `dist 1`.
 - [ ] Guidance: selected source points to the node in its `escape_to` field.
 - [ ] Self-healing: unplug one board for more than four seconds; it turns grey while the others keep updating.
 - [ ] Rejoin: reconnect the board; a new packet restores it even if its `ts` restarted at a lower value.
-- [ ] Unknown path: show `dist 99`; it is grey and never named the safest area.
+- [ ] Unknown path: while a hazard is active, show another node at `dist 99`; it is grey and never named the safest area.
 - [ ] Dashboard independence: close the browser/laptop view and verify the LEDs and node communication continue.
 - [ ] Counter reset: restart one model; Green AI totals never become a negative saving.
 

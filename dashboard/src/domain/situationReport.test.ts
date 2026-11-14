@@ -43,4 +43,20 @@ describe("deterministic situation report", () => {
     const report = buildSituationReport({ ...initial, source: "live", sensors });
     assert.deepEqual(report.sourceSensorIds, ["A-01"]);
   });
+
+  it("discloses simulated live readings in the report", () => {
+    const initial = createInitialEnvironmentState(ENVIRONMENT_BY_ID["building-a"]);
+    const sensors = initial.sensors.slice(0, 2).map((sensor) => ({
+      ...sensor,
+      live: {
+        gradientDistance: 99, via: null, escapeTo: null, mu: 22, sigma: 1, n: 20,
+        modelUpdatedAt: "2026-11-14T10:00:00Z",
+        networkAlert: false, simulated: true, bytesSent: 10,
+        bytesIfRawData: 100, sourceTimestamp: 1,
+      },
+    }));
+
+    const report = buildSituationReport({ ...initial, source: "live", sensors });
+    assert.match(report.summary, /readings simulated/i);
+  });
 });

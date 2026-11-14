@@ -1,6 +1,6 @@
 # Gaia Local Gateway
 
-The gateway is a read-only observer bridge. Arduino nodes continue detecting anomalies, exchanging topology and reaching consensus without it. The gateway listens to their UDP broadcasts, enriches the three physical IDs with `node_manifest.json`, and streams the network-owned state to dashboards.
+The gateway is a read-only observer bridge. Arduino nodes continue detecting anomalies, exchanging topology and reaching consensus without it. The gateway listens to their UDP broadcasts, enriches the two active physical IDs with `node_manifest.json`, and streams the network-owned state to dashboards.
 
 ## Run
 
