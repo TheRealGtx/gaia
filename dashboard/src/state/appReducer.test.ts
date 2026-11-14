@@ -37,7 +37,7 @@ describe("application state", () => {
 
     assert.equal(disconnected.mode, "live");
     assert.equal(disconnected.globalConnection, "disconnected");
-    assert.deepEqual(disconnected.environments["building-a"].sensors.map((sensor) => sensor.id), ["A-01", "A-02"]);
+    assert.deepEqual(disconnected.environments["building-a"].sensors.map((sensor) => sensor.id), ["A-01", "A-02", "A-03"]);
   });
 
   it("clears simulated evidence when entering live mode and live evidence when returning", () => {
