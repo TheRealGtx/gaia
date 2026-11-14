@@ -31,7 +31,7 @@ Run (three boards whose access point blocks broadcast, explicit addresses):
     NODE_ID=1 NEIGHBORS=2 PEERS=2=192.168.1.12 python3 node.py
     NODE_ID=2 NEIGHBORS=1,3 PEERS=1=192.168.1.11,3=192.168.1.13 python3 node.py
 
-Run (several nodes on ONE laptop, unicast on 127.0.0.1, port 5000+id):
+Run (several nodes on ONE laptop, unicast on 127.0.0.1, port 5200+id):
     MODE=unicast NODE_ID=1 NEIGHBORS=2 python3 node.py
     MODE=unicast NODE_ID=2 NEIGHBORS=1,3 python3 node.py
 
@@ -80,9 +80,12 @@ BROADCAST = os.environ.get("BROADCAST", "255.255.255.255")
 UNI_HOST  = os.environ.get("UNICAST_HOST", "127.0.0.1")
 PEERS     = _env_peers("PEERS")                           # {neighbour id: address}
 
-# In unicast mode each node owns its own port (5000+id) so that N nodes can run
-# on one laptop; in broadcast mode every node shares port 5005.
-PORT      = int(os.environ.get("PORT", 5000 + NODE_ID if MODE == "unicast" else 5005))
+# In unicast mode each node owns its own port so that N nodes can run on one
+# laptop; in broadcast mode every node shares port 5005. The base is 5200 and
+# not 5000 because 5000+5 IS 5005: a fifth node used to fail to start whenever
+# a gateway or a listener held the broadcast port, which looks like a topology
+# problem and is not one.
+PORT      = int(os.environ.get("PORT", 5200 + NODE_ID if MODE == "unicast" else 5005))
 
 # The App Lab app talks to this port. One node per board in broadcast mode, so
 # 5006 for everyone; in unicast several nodes share a laptop, so one port each.
@@ -413,7 +416,7 @@ def destinations():
     if PEERS:
         return [(host, PORT) for nid, host in sorted(PEERS.items()) if nid in NEIGHBORS]
     if MODE == "unicast":
-        return [(UNI_HOST, 5000 + nid) for nid in sorted(NEIGHBORS)]
+        return [(UNI_HOST, 5200 + nid) for nid in sorted(NEIGHBORS)]
     return [(addr, PORT) for addr in BCAST]
 
 def send_loop():
