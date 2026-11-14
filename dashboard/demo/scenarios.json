@@ -2,29 +2,131 @@
   "nominal": {
     "silent": [],
     "nodes": {
-      "1": {"anomaly": 0.05, "dist": 99, "via": null, "alert": false, "escape_to": null, "temperature": 20.4, "humidity": 45.0},
-      "2": {"anomaly": 0.04, "dist": 99, "via": null, "alert": false, "escape_to": null, "temperature": 20.8, "humidity": 44.5}
+      "1": {
+        "anomaly": 0.05,
+        "dist": 99,
+        "via": null,
+        "alert": false,
+        "escape_to": null,
+        "temperature": 20.4,
+        "humidity": 45.0
+      },
+      "2": {
+        "anomaly": 0.04,
+        "dist": 99,
+        "via": null,
+        "alert": false,
+        "escape_to": null,
+        "temperature": 20.8,
+        "humidity": 44.5
+      },
+      "3": {
+        "anomaly": 0.06,
+        "dist": 99,
+        "via": null,
+        "alert": false,
+        "escape_to": null,
+        "temperature": 21.2,
+        "humidity": 44.0
+      }
     }
   },
   "alert": {
     "silent": [],
     "nodes": {
-      "1": {"anomaly": 1.0, "dist": 0, "via": null, "alert": true, "escape_to": null, "temperature": 47.0, "humidity": 22.5},
-      "2": {"anomaly": 1.0, "dist": 0, "via": null, "alert": true, "escape_to": null, "temperature": 47.0, "humidity": 22.5}
+      "1": {
+        "anomaly": 1.0,
+        "dist": 0,
+        "via": null,
+        "alert": true,
+        "escape_to": null,
+        "temperature": 47.0,
+        "humidity": 22.5
+      },
+      "2": {
+        "anomaly": 1.0,
+        "dist": 0,
+        "via": null,
+        "alert": true,
+        "escape_to": 3,
+        "temperature": 47.0,
+        "humidity": 22.5
+      },
+      "3": {
+        "anomaly": 0.08,
+        "dist": 1,
+        "via": 2,
+        "alert": false,
+        "escape_to": null,
+        "temperature": 22.1,
+        "humidity": 47.0
+      }
     }
   },
   "failure": {
-    "silent": [2],
+    "silent": [
+      2
+    ],
     "nodes": {
-      "1": {"anomaly": 1.0, "dist": 0, "via": null, "alert": true, "escape_to": null, "temperature": 47.0, "humidity": 22.5},
-      "2": {"anomaly": 0.12, "dist": 1, "via": 1, "alert": false, "escape_to": null, "temperature": 23.8, "humidity": 46.2}
+      "1": {
+        "anomaly": 1.0,
+        "dist": 0,
+        "via": null,
+        "alert": false,
+        "escape_to": null,
+        "temperature": 47.0,
+        "humidity": 22.5
+      },
+      "2": {
+        "anomaly": 0.12,
+        "dist": 1,
+        "via": 1,
+        "alert": false,
+        "escape_to": 3,
+        "temperature": 23.8,
+        "humidity": 46.2
+      },
+      "3": {
+        "anomaly": 0.08,
+        "dist": 99,
+        "via": null,
+        "alert": false,
+        "escape_to": null,
+        "temperature": 22.1,
+        "humidity": 47.0
+      }
     }
   },
   "rejoin": {
     "silent": [],
     "nodes": {
-      "1": {"anomaly": 1.0, "dist": 0, "via": null, "alert": true, "escape_to": 2, "temperature": 47.0, "humidity": 22.5},
-      "2": {"anomaly": 0.12, "dist": 1, "via": 1, "alert": false, "escape_to": null, "temperature": 23.8, "humidity": 46.2}
+      "1": {
+        "anomaly": 1.0,
+        "dist": 0,
+        "via": null,
+        "alert": false,
+        "escape_to": 2,
+        "temperature": 47.0,
+        "humidity": 22.5
+      },
+      "2": {
+        "anomaly": 0.12,
+        "dist": 1,
+        "via": 1,
+        "alert": false,
+        "escape_to": 3,
+        "temperature": 23.8,
+        "humidity": 46.2
+      },
+      "3": {
+        "anomaly": 0.08,
+        "dist": 2,
+        "via": 2,
+        "alert": false,
+        "escape_to": null,
+        "temperature": 22.1,
+        "humidity": 47.0
+      }
     }
   }
 }

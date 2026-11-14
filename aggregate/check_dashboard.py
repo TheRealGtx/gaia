@@ -80,7 +80,7 @@ threading.Thread(target=gateway, daemon=True).start()
 
 env = dict(os.environ, PYTHONUNBUFFERED="1", MODE="broadcast")
 procs = {}
-for nid, nbs in ((1, "2"), (2, "1")):
+for nid, nbs in ((1, "2"), (2, "1,3"), (3, "2")):   # the line the manifest describes
     procs[nid] = subprocess.Popen(
         [sys.executable, NODE], cwd=os.path.join(REPO, "aggregate"),
         env=dict(env, NODE_ID=str(nid), NEIGHBORS=nbs),
@@ -106,6 +106,9 @@ try:
         failures.append("a source must raise ALERT, got %s" % label)
     src = [s for s in sensors if s["gradientDistance"] == 0]
     near = [s for s in sensors if s["gradientDistance"] == 1]
+    far = [s for s in sensors if s["gradientDistance"] == 2]
+    if not far or far[0]["status"] != "normal":
+        failures.append("the node two hops away is not in danger and must read normal")
     if not src or src[0]["status"] != "critical":
         failures.append("the source must be critical")
     if not near or near[0]["status"] != "warning":

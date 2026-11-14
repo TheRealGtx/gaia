@@ -6,6 +6,8 @@ from typing import Any
 from .protocol import UdpNodePacket
 from .store import GatewayStore
 
+_unknown_ids: set[int] = set()
+
 
 def apply_udp_packet(
     store: GatewayStore,
@@ -13,4 +15,13 @@ def apply_udp_packet(
     received_at: datetime,
 ) -> dict[str, Any] | None:
     sensor = store.update_udp_packet(packet, received_at)
-    return store.snapshot() if sensor is not None else None
+    if sensor is None:
+        # A board whose id is not in the manifest is simply not on the screen,
+        # which looks exactly like a board that is not transmitting. Say it
+        # once per id rather than dropping it in silence.
+        if packet.node_id not in _unknown_ids:
+            _unknown_ids.add(packet.node_id)
+            print("gaia gateway: node %d is not in the manifest, ignoring it"
+                  % packet.node_id, flush=True)
+        return None
+    return store.snapshot()

@@ -61,10 +61,13 @@ class UdpProtocolTests(unittest.TestCase):
         with self.assertRaises(ValueError):
             parse_udp_packet(b"{" + b" " * MAX_DATAGRAM_SIZE + b"}")
 
-    def test_manifest_maps_exactly_the_two_running_physical_nodes(self):
+    def test_manifest_maps_exactly_the_running_physical_nodes(self):
         manifest = load_node_manifest(Path(__file__).parents[1] / "node_manifest.json")
-        self.assertEqual(set(manifest.nodes), {1, 2})
-        self.assertEqual([manifest.nodes[node_id].sensor_id for node_id in (1, 2)], ["A-01", "A-02"])
+        self.assertEqual(set(manifest.nodes), {1, 2, 3})
+        self.assertEqual([manifest.nodes[node_id].sensor_id for node_id in (1, 2, 3)],
+                         ["A-01", "A-02", "A-03"])
+        # the boards are a line: 1 - 2 - 3, which is what NEIGHBORS says on each
+        self.assertEqual(manifest.nodes[2].neighbours, (1, 3))
 
     def test_manifest_rejects_duplicate_sensor_ids(self):
         with tempfile.TemporaryDirectory() as directory:
