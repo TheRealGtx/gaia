@@ -69,6 +69,10 @@ void setPixels(int r, int g, int b) {
 Arduino_LED_Matrix matrix;           // [X1]
 const int ROWS = 8, COLS = 13;
 uint8_t frame[ROWS * COLS];
+// Brightness of a lit dot. The matrix library is greyscale: built from the
+// Arduino IDE it defaults to more bits than App Lab, and a dot of 1 is too
+// dim to see. Fix it at 3 bits (0..7) and light dots at full 7.
+const uint8_t ON = 7;
 volatile int shownDist = 99;         // set by show_state(), drawn by loop()
 volatile int shownDir = 0;           // -1 = run left, +1 = run right, 0 = no arrow
 
@@ -77,7 +81,7 @@ void clearFrame() {
 }
 
 void setDot(int r, int c) {
-  if (r >= 0 && r < ROWS && c >= 0 && c < COLS) frame[r * COLS + c] = 1;
+  if (r >= 0 && r < ROWS && c >= 0 && c < COLS) frame[r * COLS + c] = ON;
 }
 
 // A chevron ">" whose tip is at column x (rows 0..7); mirrored for "<".
@@ -104,6 +108,7 @@ void drawFrame(int tick) {
       for (int c = 0; c < COLS; c++) { setDot(0, c); setDot(ROWS - 1, c); }
     }
   } else if (d == 0) {               // hazard here, nowhere safer to go: blink
+<<<<<<< HEAD
     if (tick % 2) for (int i = 0; i < ROWS * COLS; i++) frame[i] = 1;
   } else {                           // no hazard known: a slow heartbeat
     // Two static pixels read as "off" from a metre away and on camera, which
@@ -112,6 +117,11 @@ void drawFrame(int tick) {
     if ((tick / 4) % 2 == 0) {
       for (int r = 3; r <= 4; r++) for (int c = 5; c <= 7; c++) setDot(r, c);
     }
+=======
+    if (tick % 2) for (int i = 0; i < ROWS * COLS; i++) frame[i] = ON;
+  } else {                           // no hazard known: one quiet dot
+    setDot(3, 6); setDot(4, 6);
+>>>>>>> 61dc17afd011e94ef22468971c3ac006d4ebac16
   }
   matrix.draw(frame);                // [X1]
 }
@@ -136,6 +146,7 @@ void setup() {
   Bridge.provide("set_pixels", setPixels);  // [B2]
   Bridge.provide("show_state", showState);  // [B2]
   matrix.begin();                           // [X1]
+  matrix.setGrayscaleBits(3);               // dots 0..7, see ON
 
   setPixels(0, 0, 40);               // blue = "sketch is alive"
 }

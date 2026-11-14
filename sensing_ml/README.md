@@ -31,7 +31,7 @@ python test_model.py                         # fake data, no hardware
 python calibrate.py normal.csv hazard.csv    # real recordings: time,temp,hum
 ```
 
-## Parameters (update after calibration)
+## Parameters (calibrated on Node3, 14/11)
 
 | Name | Value | Meaning |
 | --- | --- | --- |
@@ -41,5 +41,19 @@ python calibrate.py normal.csv hazard.csv    # real recordings: time,temp,hum
 | RATE_MAX | 1.5 °C | rise in the window mapped to 1.0 |
 | LEARN_BELOW | 0.4 | learn only below this score |
 | N_MAX | 300 | sample count cap |
+
+### Calibration result
+
+`normal.csv`: 5 min at room temperature (25.1-25.4 °C, noise sd 0.06 °C).
+`hazard.csv`: 1 min, finger on the Thermo after ~10 s (25.3 -> 33.8 °C).
+
+| sigma_floor | max normal score | seconds to > 0.7 in hazard |
+| --- | --- | --- |
+| 0.30 - 1.50 | 0.13 | 11 (about 1 s after the heat starts) |
+
+No false alarm in 5 min (max 0.13, limit 0.4), and the hazard is caught about
+one second after the heat arrives. Every floor gives the same result because
+the rate feature catches the hazard first, so we keep the safer 0.5 for a
+noisy hall. The recordings are in this folder.
 
 Keep the Modulino Thermo on its cable, away from the board: the UNO Q warms up.

@@ -205,17 +205,14 @@ def show_state():
                 direction = -direction
     try:
         Bridge.call("show_state", int(d), int(direction))
-    except Exception as e:
-        # The RGB LEDs keep working without the matrix, but say why, once: a
-        # silent pass made "the matrix stopped" indistinguishable from "the
-        # sketch flashed on this board is an old one without show_state".
-        if not _matrix_warned["done"]:
-            _matrix_warned["done"] = True
-            print("LED matrix: show_state failed (%s). Is the sketch on this "
-                  "board the current one?" % e, flush=True)
+    except Exception as e:       # older sketch without show_state: LEDs still work
+        if not _warned.get("matrix"):
+            _warned["matrix"] = True
+            print("LED matrix off: show_state failed (%s). Is the flashed sketch "
+                  "app_lab/echofield_node/sketch/sketch.ino?" % e, flush=True)
 
 
-_matrix_warned = {"done": False}
+_warned = {}
 
 
 # ---- App Lab loop (main thread, the only code that touches the Bridge) -----
