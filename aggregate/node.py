@@ -211,10 +211,17 @@ def get_anomaly():
     return a
 
 def local_params():
-    """Model parameters to put in the heartbeat."""
+    """Model parameters to share with the neighbours (every PARAM_EVERY s).
+
+    Option B (agreed 14/11): mu/sigma/n are NOT in every heartbeat, only in one
+    heartbeat every PARAM_EVERY seconds, so bytes_sent counts what is really
+    on air. Receivers keep the last values they heard (see recv_loop)."""
     if get_params is not None:
         try:
-            p = get_params()
+            try:
+                p = get_params(share=True)
+            except TypeError:                       # older model without share=
+                p = get_params()
             return {"mu": float(p["mu"]), "sigma": float(p["sigma"]), "n": int(p["n"])}
         except Exception:
             pass
@@ -369,6 +376,13 @@ def recv_loop():
                 drops[mid] = drops.get(mid, 0) + 1
             continue
         with lock:
+            # mu/sigma/n arrive only every PARAM_EVERY s: keep the last ones
+            # heard, so param_loop (and the status line) always see them.
+            old = table.get(mid)
+            if old and "mu" not in m:
+                for k in ("mu", "sigma", "n"):
+                    if k in old[0]:
+                        m[k] = old[0][k]
             table[mid] = (m, time.time())
             try:
                 # Only one heartbeat in PARAM_EVERY carries these, so they are
