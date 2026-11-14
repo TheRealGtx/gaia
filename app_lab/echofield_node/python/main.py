@@ -152,7 +152,9 @@ def show_state():
             d = UNKNOWN
         direction = 0
         esc, via, me = _state.get("escape_to"), _state.get("via"), _state.get("id")
-        if d < UNKNOWN and isinstance(me, int):
+        if _state.get("dist") == 0:
+            pass        # I am the fire: no arrow, the sketch blinks the whole matrix
+        elif d < UNKNOWN and isinstance(me, int):
             if isinstance(esc, int) and esc != me:
                 direction = 1 if esc > me else -1      # toward the safest neighbour
             elif isinstance(via, int) and via != me:
