@@ -462,6 +462,7 @@ def sensor_loop():
         with lock:
             reply = {"id": NODE_ID, "dist": state["dist"], "alert": state["alert"],
                      "escape_to": state["escape_to"],
+                     "via": state["via"],   # where the hazard is: the app points away from it
                      "anomaly": round(float(state["anomaly"]), 3)}
         try:
             s.sendto(json.dumps(reply).encode(), addr)

@@ -151,9 +151,14 @@ def show_state():
         except (TypeError, ValueError):
             d = UNKNOWN
         direction = 0
-        esc, me = _state.get("escape_to"), _state.get("id")
-        if d < UNKNOWN and isinstance(esc, int) and isinstance(me, int) and esc != me:
-            direction = 1 if esc > me else -1
+        esc, via, me = _state.get("escape_to"), _state.get("via"), _state.get("id")
+        if d < UNKNOWN and isinstance(me, int):
+            if isinstance(esc, int) and esc != me:
+                direction = 1 if esc > me else -1      # toward the safest neighbour
+            elif isinstance(via, int) and via != me:
+                # End of the line (no safer neighbour): run AWAY from the
+                # neighbour the hazard came from, i.e. off the edge.
+                direction = -1 if via > me else 1
             if os.environ.get("ARROW_FLIP") == "1":
                 direction = -direction
     try:
