@@ -55,6 +55,18 @@ do during the recording.
    real `node.py` processes on UDP 5005. That is the actual protocol, with the
    real gradient, the parameter cadence and the duplicate datagrams, so it
    catches what a hand-written generator cannot.
+5. **Already verified against your imported code** with
+   `python3 aggregate/check_dashboard.py`, which feeds real packets to your
+   parser and your store and judges the banner:
+
+   ```
+   quiet field     A-01[normal d=99 t=20.0 sim]  A-02[normal d=99 t=20.0 sim]  -> ALL CLEAR
+   node 1 heated   A-01[critical d=0 t=50.0 sim] A-02[warning d=1 t=20.0 sim]  -> ALERT
+   packets accepted: 20, rejected: 0
+   ```
+
+   So your status fix works, the simulated flag arrives, and nothing we send is
+   refused. Re-run it whenever either side touches the contract.
 
 ## Chuqi
 
