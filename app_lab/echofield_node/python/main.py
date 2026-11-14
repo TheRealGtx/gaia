@@ -20,8 +20,14 @@ neighbour (escape_to), i.e. where to run. Colours:
 Why the node is not in here: App Lab runs this file in a container on a docker
 bridge (172.18.0.2), and a broadcast from there never reaches the Wi-Fi. So
 node.py and the model (sensing_ml/model.py) run on the host, and this app needs
-neither of them: only main.py and the sketch have to be in the App Lab app.
-NODE_ID and NEIGHBORS are set where node.py is started, not here.
+neither of them. NODE_ID and NEIGHBORS are set where node.py is started.
+
+Two ways to run it, and the file finds out which one by itself:
+  - inside App Lab: node.py on the board host, reached at the container's
+    default gateway;
+  - over SSH on the board itself, with the sketch flashed from the Arduino IDE
+    (what the mentors suggested): node.py on the same machine, at 127.0.0.1.
+    ../run_board.sh starts both.
 
 Every reading is also appended to a CSV for calibrate.py (columns
 time,temp,hum). The full path is printed at startup.
@@ -46,7 +52,18 @@ import socket
 import struct
 import time
 
-from arduino.app_utils import App, Bridge
+try:
+    from arduino.app_utils import App, Bridge
+except ImportError as e:
+    # Outside App Lab this is the first thing to go wrong, and a bare traceback
+    # at 07:00 does not say what to do about it.
+    import sys
+    sys.exit(
+        "arduino.app_utils is not importable by %s (%s).\n"
+        "It ships with App Lab, not with the system python. Find it with\n"
+        "    find / -path '*arduino/app_utils*' -not -path '/proc/*' 2>/dev/null | head\n"
+        "then run this file with the python that sits next to it, or put its\n"
+        "site-packages folder in PYTHONPATH." % (sys.executable, e))
 
 RECORD = os.path.abspath(os.environ.get("RECORD", "readings.csv"))
 TEST_MODE = os.environ.get("GAIA_MODE", "network") == "test"
@@ -78,10 +95,30 @@ print("recording to", RECORD, flush=True)
 
 
 # ---- the node on the board host --------------------------------------------
+def in_container():
+    """True inside the App Lab container, False on the board's own OS (SSH)."""
+    if os.path.exists("/.dockerenv"):
+        return True
+    try:
+        with open("/proc/1/cgroup") as f:
+            return any(k in f.read() for k in ("docker", "containerd", "libpod"))
+    except OSError:
+        return False
+
+
 def host_address():
-    """The board host as seen from this container: its default gateway."""
+    """Where node.py listens.
+
+    Inside the App Lab container the board's host is the container's default
+    gateway. Run over SSH on the board itself, the default gateway is the Wi-Fi
+    router instead, so the same rule would send every reading to the hotspot,
+    the node would never hear them, and nothing would say so: there the node is
+    on this very machine.
+    """
     if os.environ.get("NODE_HOST"):
         return os.environ["NODE_HOST"]
+    if not in_container():
+        return "127.0.0.1"
     try:
         with open("/proc/net/route") as f:
             for line in f.readlines()[1:]:
@@ -94,6 +131,9 @@ def host_address():
 
 
 HOST = host_address()
+print("node.py expected at %s:%d (%s)" % (
+    HOST, int(os.environ.get("SENSOR_PORT", 5006)),
+    "App Lab container" if in_container() else "board OS, e.g. over SSH"), flush=True)
 _sock = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
 _sock.settimeout(0.5)
 _state = {"dist": UNKNOWN, "alert": False}
