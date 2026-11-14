@@ -18,6 +18,10 @@ Run (two boards / two laptops on the same Wi-Fi, broadcast):
     NODE_ID=1 NEIGHBORS=2 python3 node.py
     NODE_ID=2 NEIGHBORS=1 python3 node.py
 
+Run (three boards whose access point blocks broadcast, explicit addresses):
+    NODE_ID=1 NEIGHBORS=2 PEERS=2=192.168.1.12 python3 node.py
+    NODE_ID=2 NEIGHBORS=1,3 PEERS=1=192.168.1.11,3=192.168.1.13 python3 node.py
+
 Run (several nodes on ONE laptop, unicast on 127.0.0.1, port 5000+id):
     MODE=unicast NODE_ID=1 NEIGHBORS=2 python3 node.py
     MODE=unicast NODE_ID=2 NEIGHBORS=1,3 python3 node.py
@@ -46,11 +50,23 @@ def _env_ids(name, default=""):
     raw = os.environ.get(name, default)
     return set(int(x) for x in raw.replace(" ", "").split(",") if x)
 
+def _env_peers(name):
+    """`PEERS=1=192.168.1.11,3=192.168.1.13`: one address per neighbour, used
+    instead of broadcast. Needed when the access point isolates its clients,
+    which most phone hotspots and guest networks do."""
+    out = {}
+    for part in os.environ.get(name, "").replace(" ", "").split(","):
+        if "=" in part:
+            nid, host = part.split("=", 1)
+            out[int(nid)] = host
+    return out
+
 NODE_ID   = int(os.environ.get("NODE_ID", 1))
 NEIGHBORS = _env_ids("NEIGHBORS", "2")
 MODE      = os.environ.get("MODE", "broadcast").lower()   # broadcast | unicast
 BROADCAST = os.environ.get("BROADCAST", "255.255.255.255")
 UNI_HOST  = os.environ.get("UNICAST_HOST", "127.0.0.1")
+PEERS     = _env_peers("PEERS")                           # {neighbour id: address}
 
 # In unicast mode each node owns its own port (5000+id) so that N nodes can run
 # on one laptop; in broadcast mode every node shares port 5005.
@@ -71,6 +87,7 @@ UNKNOWN     = 99                                         # "I don't know where t
 state  = {"anomaly": 0.0, "dist": UNKNOWN, "via": None, "alert": False, "escape_to": None}
 params = {"mu": 0.0, "sigma": 1.0, "n": 0}    # overwritten by Chuqi's get_params()
 table  = {}                                   # neighbour id -> (message, last_seen)
+drops  = {}                                   # id -> messages heard but not in NEIGHBORS
 lock   = threading.Lock()                     # protects state, params and table
 fake   = {"anomaly": float(os.environ.get("ANOMALY", 0.0))}   # keyboard-driven test value
 sensor = {"last": None}                       # last raw reading, sent for the dashboard
@@ -198,11 +215,43 @@ def local_params():
 
 # -------------------------------------------------------------- network ----
 
+def local_ip():
+    """The address of the interface that reaches the network, or None."""
+    s = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
+    try:
+        s.connect(("8.8.8.8", 80))              # picks the route, sends nothing
+        return s.getsockname()[0]
+    except OSError:
+        return None
+    finally:
+        s.close()
+
+def broadcast_addrs():
+    """255.255.255.255 plus the subnet broadcast of the outgoing interface.
+
+    Two things that cost an hour of debugging on real boards: some access points
+    and some Linux setups drop the limited broadcast, and a board with a USB
+    link up may route 255.255.255.255 out of the wrong interface. The
+    subnet-directed address (x.y.z.255, /24 assumed) gets through where the
+    other does not. BROADCAST=<addr> overrides both and sends to that one only.
+    """
+    if "BROADCAST" in os.environ:
+        return [os.environ["BROADCAST"]]
+    addrs = ["255.255.255.255"]
+    ip = local_ip()
+    if ip and not ip.startswith("127.") and ip.count(".") == 3:
+        addrs.append(ip.rsplit(".", 1)[0] + ".255")
+    return addrs
+
+BCAST = broadcast_addrs()
+
 def destinations():
-    """Where a heartbeat goes: one broadcast address, or each neighbour's port."""
+    """Where a heartbeat goes: explicit peers, each neighbour's port, or broadcast."""
+    if PEERS:
+        return [(host, PORT) for nid, host in sorted(PEERS.items()) if nid in NEIGHBORS]
     if MODE == "unicast":
         return [(UNI_HOST, 5000 + nid) for nid in sorted(NEIGHBORS)]
-    return [(BROADCAST, PORT)]
+    return [(addr, PORT) for addr in BCAST]
 
 def send_loop():
     s = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
@@ -242,8 +291,15 @@ def recv_loop():
         except (ValueError, OSError):               # invalid JSON or socket hiccup
             continue
         mid = m.get("id")
-        if not isinstance(mid, int) or mid == NODE_ID or mid not in NEIGHBORS:
-            continue                                # ignore myself, strangers, junk
+        if not isinstance(mid, int) or mid == NODE_ID:
+            continue                                # ignore myself and junk
+        if mid not in NEIGHBORS:
+            # Heard, but not in my NEIGHBORS: on real boards this is the usual
+            # reason why "the others do not see the alarm". Counted and shown in
+            # the status line instead of being dropped in silence.
+            with lock:
+                drops[mid] = drops.get(mid, 0) + 1
+            continue
         with lock:
             table[mid] = (m, time.time())
 
@@ -342,19 +398,47 @@ def status_line(t0):
         own["temperature"] = (sensor["last"] or {}).get("temp")
         now = time.time()
         seen = [(nid, m, now - t) for nid, (m, t) in nb]
+        ignored = dict(sorted(drops.items()))
     parts = ["%-3d d=%-2s a=%.2f%s age=%.1fs%s" %
              (nid, m.get("dist", "?"), float(m.get("anomaly", 0)), temp_of(m), age,
               " ALERT" if m.get("alert") else "")
              for nid, m, age in seen]
-    return "[%6.1fs] id=%d anom=%.2f%s dist=%-2d via=%-4s alert=%-3s esc=%-4s | %s" % (
+    line = "[%6.1fs] id=%d anom=%.2f%s dist=%-2d via=%-4s alert=%-3s esc=%-4s | %s" % (
         time.time() - t0, NODE_ID, own["anomaly"], temp_of(own), own["dist"], own["via"],
         "ON" if own["alert"] else "off", own["escape_to"],
         "  ".join(parts) if parts else "(no alive neighbour)")
+    if ignored:
+        # e.g. ignored:{2: 37} -> node 2 is on the air and I am throwing it away
+        line += "  ignored:%s" % ignored
+    return line
 
-if __name__ == "__main__":
+def main(sensor=None, score=None):
+    """Run the node; blocks until `q` on stdin or running.clear().
+
+    The App Lab app on the board calls it with its own functions:
+
+        import node                                  # aggregate/node.py
+        node.main(sensor=read_sensor, score=anomaly_score)
+
+    because on the board the Modulino is only reachable through the App Lab
+    Bridge, which sensing_ml/model.py cannot import. If App Lab's user_loop owns
+    the main thread, start this in a thread instead:
+
+        threading.Thread(target=node.main,
+                         kwargs={"sensor": read_sensor,
+                                 "score": anomaly_score}, daemon=True).start()
+    """
+    global read_sensor, anomaly_score
+    if sensor is not None:
+        read_sensor = sensor
+    if score is not None:
+        anomaly_score = score
     print("node %d  mode=%s port=%d neighbours=%s  anomaly=%s  sensor=%s"
           % (NODE_ID, MODE, PORT, sorted(NEIGHBORS), anomaly_source(),
              "real" if read_sensor else ("fake" if FAKE_SENSOR else "off")), flush=True)
+    print("my address %s, sending to %s"
+          % (local_ip() or "unknown", ", ".join("%s:%d" % d for d in destinations())),
+          flush=True)
     state["anomaly"] = get_anomaly()                # the first heartbeat already
                                                     # carries anomaly and sensor
     for fn in (send_loop, recv_loop, param_loop, key_loop):
@@ -362,10 +446,19 @@ if __name__ == "__main__":
     t0 = time.time()
     last_print = 0.0
     while running.is_set():
+        # Read OUTSIDE the lock. On the board read_sensor() goes through the App
+        # Lab Bridge over I2C: if that call hangs, holding the lock here would
+        # block send_loop too and the node would vanish from the network while
+        # still running. A stale anomaly for one round is survivable, silence is
+        # not.
+        a = get_anomaly()
         with lock:
-            state["anomaly"] = get_anomaly()
+            state["anomaly"] = a
         update()
         if time.time() - last_print >= 1.0:         # status once per second
             print(status_line(t0), flush=True)
             last_print = time.time()
         time.sleep(0.5)
+
+if __name__ == "__main__":
+    main()
