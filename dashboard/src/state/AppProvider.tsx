@@ -77,10 +77,10 @@ export function AppProvider({ children }: { children: ReactNode }) {
         adapter.dispatch(state.activeEnvironmentId, action);
         const labels: Record<SimulationAction["type"], string> = {
           "increase-temperature": "Temperature increased on selected node",
-          "simulate-anomaly": "Local anomaly injected",
           "confirm-fire": "Simulated fire confirmed by neighbour consensus",
           "block-edge": "Route segment obstruction toggled",
           "disable-node": "Sensor node disabled",
+          "enable-node": "Sensor node enabled",
           "network-failure": "Mesh network fault injected",
           reset: "Simulation reset",
         };

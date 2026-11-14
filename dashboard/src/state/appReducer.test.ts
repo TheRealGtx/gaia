@@ -39,21 +39,6 @@ describe("application state", () => {
     assert.equal(changed.selectedRoomId, null);
   });
 
-  it("changes the visible building floor only through the floor selector", () => {
-    const initial = appReducer(createInitialAppState(), { type: "select-environment", environmentId: "building-a" });
-    const upperSensor = initial.environments["building-a"].sensors.find((sensor) => sensor.floorId === "level-3")!;
-    const upperRoom = initial.environments["building-a"].definition.rooms.find((room) => room.floorId === "level-3")!;
-
-    const sensorSelected = appReducer(initial, { type: "select-sensor", sensorId: upperSensor.id });
-    assert.equal(sensorSelected.selectedFloorId, "all");
-
-    const roomSelected = appReducer(sensorSelected, { type: "select-room", roomId: upperRoom.id });
-    assert.equal(roomSelected.selectedFloorId, "all");
-
-    const floorSelected = appReducer(roomSelected, { type: "select-floor", floorId: "level-3" });
-    assert.equal(floorSelected.selectedFloorId, "level-3");
-  });
-
   it("marks live mode and preserves a disconnected state as non-nominal", () => {
     const initial = appReducer(createInitialAppState(), { type: "select-environment", environmentId: "building-a" });
     const live = appReducer(initial, { type: "set-mode", mode: "live" });

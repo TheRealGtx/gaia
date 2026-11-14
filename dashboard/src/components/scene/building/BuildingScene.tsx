@@ -51,9 +51,9 @@ function Stairs({ x, floor }: { x: number; floor: Floor }) {
   return <group>{Array.from({ length: 10 }, (_, index) => <Box key={index} position={[x + (x < 0 ? index * .28 : -index * .28), floor.elevation + .18 + index * .22, -.15]} size={[.72, .18, 2.1]} color="#aebbc2" />)}<Box position={[x + (x < 0 ? 1.25 : -1.25), floor.elevation + 1.45, -1.25]} size={[3.6, .09, .09]} color="#52706c" rotation={[0, 0, x < 0 ? -.58 : .58]} /></group>;
 }
 
-function FloorShell({ floor, rooms, selectedRoomId, onSelectRoom, showLabels, faded, brickTexture }: { floor: Floor; rooms: Room[]; selectedRoomId: string | null; onSelectRoom(id: string): void; showLabels: boolean; faded: boolean; brickTexture: Texture }) {
+function FloorShell({ floor, rooms, selectedRoomId, onSelectRoom, showLabels, brickTexture }: { floor: Floor; rooms: Room[]; selectedRoomId: string | null; onSelectRoom(id: string): void; showLabels: boolean; brickTexture: Texture }) {
   const wallY = floor.elevation + 1.9;
-  const opacity = faded ? .88 : 1;
+  const opacity = .88;
   return <group>
     <Box position={[0, floor.elevation, 0]} size={[36, .28, 28]} color={floor.level % 2 ? "#b8a68b" : "#c4b296"} opacity={opacity} />
     <BrickWall position={[0, wallY, -14]} size={[36, 3.8, .28]} texture={brickTexture} opacity={opacity} />
@@ -88,14 +88,13 @@ function FloorShell({ floor, rooms, selectedRoomId, onSelectRoom, showLabels, fa
   </group>;
 }
 
-export function BuildingScene({ definition, floorId, selectedRoomId, onSelectRoom, showLabels = true }: { definition: EnvironmentDefinition; floorId: string; selectedRoomId: string | null; onSelectRoom(id: string): void; showLabels?: boolean }) {
+export function BuildingScene({ definition, selectedRoomId, onSelectRoom, showLabels = true }: { definition: EnvironmentDefinition; selectedRoomId: string | null; onSelectRoom(id: string): void; showLabels?: boolean }) {
   const brickTexture = useMemo(createBrickTexture, []);
   useEffect(() => () => brickTexture.dispose(), [brickTexture]);
-  const visibleFloors = definition.floors.filter((floor) => floorId === "all" || floor.id === floorId);
   return (
     <group>
       <Box position={[0, -.48, 0]} size={[40, .7, 32]} color="#918977" />
-      {visibleFloors.map((floor) => <FloorShell key={floor.id} floor={floor} rooms={definition.rooms.filter((room) => room.floorId === floor.id)} selectedRoomId={selectedRoomId} onSelectRoom={onSelectRoom} showLabels={showLabels} faded={floorId === "all"} brickTexture={brickTexture} />)}
+      {definition.floors.map((floor) => <FloorShell key={floor.id} floor={floor} rooms={definition.rooms.filter((room) => room.floorId === floor.id)} selectedRoomId={selectedRoomId} onSelectRoom={onSelectRoom} showLabels={showLabels} brickTexture={brickTexture} />)}
       {definition.exits.map((exit) => <group key={exit.id} position={exit.position}><Box position={[0, 1.2, 0]} size={[2.7, 2.4, .24]} color="#10b981" />{showLabels ? <Text position={[0, 2.8, 0]} fontSize={.46} color="#047857">{exit.name}</Text> : null}</group>)}
     </group>
   );

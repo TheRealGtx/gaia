@@ -12,7 +12,7 @@ describe("digital twin view model", () => {
     for (const origin of state.definition.waypoints) {
       for (const route of selectRoutes(state, origin.id)) {
         const original = structuredClone(route);
-        const points = createSceneModel(state, route, "all").routePoints;
+        const points = createSceneModel(state, route).routePoints;
         for (let index = 1; index < points.length; index += 1) {
           const a = points[index - 1];
           const b = points[index];
@@ -28,15 +28,16 @@ describe("digital twin view model", () => {
         assert.deepEqual(route, original);
       }
     }
-    assert.deepEqual(createSceneModel(state, null, "all").routePoints, []);
+    assert.deepEqual(createSceneModel(state, null).routePoints, []);
   });
 
   it("derives synchronized markers, mesh links and graph-following route points", () => {
     const state = createInitialEnvironmentState(ENVIRONMENT_BY_ID["building-a"]);
     const route = selectBestRoute(selectRoutes(state, "office-a"));
-    const model = createSceneModel(state, route, "level-1");
+    const model = createSceneModel(state, route);
 
-    assert.equal(model.sensors.every((sensor) => sensor.floorId === "level-1"), true);
+    assert.deepEqual(model.sensors, state.sensors);
+    assert.deepEqual(model.rooms, state.definition.rooms);
     assert.ok(model.networkLinks.length > 0);
     assert.deepEqual(model.routePoints, route?.points);
   });
@@ -44,7 +45,7 @@ describe("digital twin view model", () => {
   it("shows confirmed visual fire separately from sensor readings", () => {
     const initial = createInitialEnvironmentState(ENVIRONMENT_BY_ID["forest-north"]);
     const state = applySimulationAction(initial, { type: "confirm-fire", sensorId: "N-03" });
-    const model = createSceneModel(state, null, "all");
+    const model = createSceneModel(state, null);
 
     assert.equal(model.hazards[0]?.kind, "simulated-fire");
     assert.equal(model.hazards[0]?.visualOnly, true);
@@ -70,8 +71,8 @@ describe("digital twin view model", () => {
         : sensor),
     };
 
-    const coolVisual = createSceneModel(coolHumid, null, "all").hazards[0]?.visual;
-    const hotVisual = createSceneModel(hotDry, null, "all").hazards[0]?.visual;
+    const coolVisual = createSceneModel(coolHumid, null).hazards[0]?.visual;
+    const hotVisual = createSceneModel(hotDry, null).hazards[0]?.visual;
     assert.ok(coolVisual);
     assert.ok(hotVisual);
     assert.ok(hotVisual.intensity > coolVisual.intensity);
@@ -80,13 +81,11 @@ describe("digital twin view model", () => {
     assert.ok(hotVisual.smokeOpacity > coolVisual.smokeOpacity);
   });
 
-  it("only shows an indoor fire mesh on the floor containing its source sensor", () => {
+  it("keeps indoor fire meshes positioned on their source floor in the whole building", () => {
     const initial = createInitialEnvironmentState(ENVIRONMENT_BY_ID["building-a"]);
     const fire = applySimulationAction(initial, { type: "confirm-fire", sensorId: initial.definition.fireSensorId });
 
-    assert.equal(createSceneModel(fire, null, "level-1").hazards.length, 1);
-    assert.equal(createSceneModel(fire, null, "level-1").hazards[0].position[1], initial.definition.floors[0].elevation + .2);
-    assert.equal(createSceneModel(fire, null, "level-4").hazards.length, 0);
-    assert.equal(createSceneModel(fire, null, "all").hazards.length, 1);
+    assert.equal(createSceneModel(fire, null).hazards.length, 1);
+    assert.equal(createSceneModel(fire, null).hazards[0].position[1], initial.definition.floors[0].elevation + .2);
   });
 });

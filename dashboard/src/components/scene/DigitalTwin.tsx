@@ -108,7 +108,7 @@ export function DigitalTwin({ cameraSync, onReady }: { cameraSync: CameraSyncCha
   const state = useGaiaState();
   const { dispatch } = useGaiaActions();
   const { environment, bestRoute } = selectDashboard(state);
-  const model = createSceneModel(environment, state.showRoutes ? bestRoute : null, state.selectedFloorId);
+  const model = createSceneModel(environment, state.showRoutes ? bestRoute : null);
   return (
     <section className="digital-twin" aria-label={`Interactive 3D digital twin of ${environment.definition.name}`}>
       <SceneErrorBoundary key={`${environment.definition.id}-${state.cameraResetToken}`} onReady={onReady}>
@@ -123,7 +123,7 @@ export function DigitalTwin({ cameraSync, onReady }: { cameraSync: CameraSyncCha
               shadow-mapSize={[2048, 2048]} shadow-camera-left={-52} shadow-camera-right={52}
               shadow-camera-top={44} shadow-camera-bottom={-44} shadow-camera-near={1}
               shadow-camera-far={140} shadow-normalBias={.06} shadow-bias={-.0001} />
-            {environment.definition.kind === "building" ? <BuildingScene definition={environment.definition} floorId={state.selectedFloorId} selectedRoomId={state.selectedRoomId} onSelectRoom={(roomId) => dispatch({ type: "select-room", roomId })} /> : <ForestScene definition={environment.definition} />}
+            {environment.definition.kind === "building" ? <BuildingScene definition={environment.definition} selectedRoomId={state.selectedRoomId} onSelectRoom={(roomId) => dispatch({ type: "select-room", roomId })} /> : <ForestScene definition={environment.definition} />}
             {state.showNetwork ? <NetworkLinks topology={{ ...environment.topology, connections: model.networkLinks }} sensors={model.sensors} selectedId={state.selectedSensorId} /> : null}
             {model.hazards.map((hazard) => <HazardMarker key={hazard.id} hazard={hazard} />)}
             {model.sensors.map((sensor) => <SensorMarker key={sensor.id} sensor={sensor} selected={sensor.id === state.selectedSensorId} onSelect={() => dispatch({ type: "select-sensor", sensorId: sensor.id })} />)}

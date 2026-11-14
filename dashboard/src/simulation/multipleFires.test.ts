@@ -21,7 +21,7 @@ describe("multiple simulated fires", () => {
     const hotter = applySimulationAction(second, { type: "increase-temperature", sensorId: firstId, delta: 5 });
     assert.equal(hotter.sensors.find((sensor) => sensor.id === firstId)?.status, "critical");
     assert.equal(hotter.hazards.length, 2);
-    assert.equal(createSceneModel(second, null, "all").hazards.length, 2);
+    assert.equal(createSceneModel(second, null).hazards.length, 2);
     assert.match(generateIntelligenceSummary(second, null), /2 simulated fires/);
     assert.deepEqual(selectSimulatedHazardSources(second), [firstId, secondId]);
     const reset = applySimulationAction(second, { type: "reset" });

@@ -3,20 +3,15 @@
 import { Layers3, Network, PanelLeftOpen, RotateCcw, Route, X } from "lucide-react";
 import { useRef } from "react";
 import { useGaiaActions, useGaiaState } from "../../state/hooks";
-import { selectActiveEnvironment } from "../../state/selectors";
 import { Button, StatusDot } from "../ui";
-import { getFloorOptions } from "./mapToolbarModel";
 
 export function MapToolbar() {
   const optionsDialog = useRef<HTMLDialogElement>(null);
   const state = useGaiaState();
   const { dispatch } = useGaiaActions();
-  const environment = selectActiveEnvironment(state);
-  const floorOptions = getFloorOptions(environment.definition);
   return (
     <div className="map-toolbar">
       <div className="map-toolbar__actions">
-        {floorOptions.length ? <label className="floor-select"><span className="sr-only">Visible floor</span><select value={state.selectedFloorId} onChange={(event) => dispatch({ type: "select-floor", floorId: event.target.value })}>{floorOptions.map((option) => <option key={option.value} value={option.value}>{option.label}</option>)}</select></label> : null}
         <Button id="sensor-panel-toggle" className="sensor-panel-toggle" icon={PanelLeftOpen} variant={state.telemetryPanelOpen ? "active" : "ghost"} aria-controls="sensor-details" aria-expanded={state.telemetryPanelOpen} onClick={() => dispatch({ type: "toggle-telemetry-panel" })}>Sensors</Button>
         <Button className="map-options-toggle" icon={Layers3} aria-haspopup="dialog" aria-controls="map-options-dialog" onClick={() => optionsDialog.current?.showModal()}>Map options</Button>
         <dialog

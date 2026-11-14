@@ -33,7 +33,7 @@ export function EnvironmentPreview3D({ definition }: { definition: EnvironmentDe
         <hemisphereLight args={["#dce7ed", "#626449", 1.15]} />
         <directionalLight position={[24, 52, 28]} color="#fff1d6" intensity={2.2} />
         {building
-          ? <BuildingScene definition={definition} floorId="all" selectedRoomId={null} onSelectRoom={() => undefined} showLabels={false} />
+          ? <BuildingScene definition={definition} selectedRoomId={null} onSelectRoom={() => undefined} showLabels={false} />
           : <ForestScene definition={definition} showLabels={false} />}
       </Canvas>
       <span>{definition.kind}</span>
