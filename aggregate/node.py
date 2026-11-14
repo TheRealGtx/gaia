@@ -109,6 +109,7 @@ lock   = threading.Lock()                     # protects state, params and table
 fake   = {"anomaly": float(os.environ.get("ANOMALY", 0.0))}   # keyboard-driven test value
 sensor = {"last": None}                       # last raw reading, sent for the dashboard
 bridge = {"last": None, "at": 0.0, "seen": False}   # readings from the App Lab app
+scored = {"at": None, "a": 0.0}               # last bridge reading scored, and its score
 running = threading.Event()
 running.set()
 
@@ -236,11 +237,20 @@ def get_anomaly():
     use_model = anomaly_score is not None and ANOMALY_SRC != "fake" and (
         reading is not None or ANOMALY_SRC == "model")
     if use_model:
+        # A bridge reading arrives once a second, but this runs every 0.5 s.
+        # Score each reading ONCE: scoring it twice would teach the model the
+        # same sample twice, distort the rate feature, and double
+        # bytes_if_raw_data (the green-AI saving would look better than it is).
+        with lock:
+            at = bridge["at"] if reading is not None and bridge["last"] is not None else None
+        if at is not None and at == scored["at"]:
+            return scored["a"]
         try:
             if reading is None:                     # ANOMALY_SRC=model, no hardware
                 reading = fake_reading(fake["anomaly"])
             a = max(0.0, min(1.0, float(anomaly_score(reading))))
             sensor["last"] = clean_reading(reading)
+            scored["at"], scored["a"] = at, a
             return a
         except Exception as e:                      # model problems must not stop the node
             print("model error, falling back to fake anomaly:", e)
