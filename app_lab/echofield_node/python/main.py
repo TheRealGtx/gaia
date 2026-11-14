@@ -60,10 +60,10 @@ except ImportError as e:
     import sys
     sys.exit(
         "arduino.app_utils is not importable by %s (%s).\n"
-        "It ships with App Lab, not with the system python. Find it with\n"
-        "    find / -path '*arduino/app_utils*' -not -path '/proc/*' 2>/dev/null | head\n"
-        "then run this file with the python that sits next to it, or put its\n"
-        "site-packages folder in PYTHONPATH." % (sys.executable, e))
+        "It ships inside App Lab's docker image, not with the board's python.\n"
+        "Run app_lab/echofield_node/setup_bridge.sh once on this board: it copies\n"
+        "the library out of the image, and run_board.sh then finds it by itself."
+        % (sys.executable, e))
 
 RECORD = os.path.abspath(os.environ.get("RECORD", "readings.csv"))
 TEST_MODE = os.environ.get("GAIA_MODE", "network") == "test"

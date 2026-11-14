@@ -12,9 +12,10 @@
 #   ./run_board.sh 2 1,3
 #   ./run_board.sh 3 2
 #
-# Optional: PY_APP=/path/to/python if the system python3 cannot import
-# arduino.app_utils (main.py says so and tells you how to find the right one),
-# and ANOMALY=1 to start the node already in anomaly.
+# The board's python3 has no arduino.app_utils of its own: run
+# ./setup_bridge.sh once and this script finds the copy in ../../.bridge.
+# Optional: PY_APP=/path/to/python to use another interpreter, and ANOMALY=1 to
+# start the node already in anomaly.
 #
 # The node's status lines go to /tmp/gaia-node-<id>.log so they do not mix with
 # the app's; watch them from a second SSH session with
@@ -45,4 +46,15 @@ fi
 echo "node $ID up (pid $NODE_PID, neighbours $NB), log in $LOG"
 head -3 "$LOG"
 
-NODE_HOST=127.0.0.1 "$PY_APP" "$HERE/python/main.py"
+# Only the app gets App Lab's libraries on its path: node.py and the model need
+# nothing but the standard library, and keeping them off it means a broken copy
+# can take down the LEDs but never the mesh.
+BRIDGE="$ROOT/.bridge/site-packages"
+if [ -d "$BRIDGE" ]; then
+    APP_PYTHONPATH="$BRIDGE${PYTHONPATH:+:$PYTHONPATH}"
+else
+    echo "no $BRIDGE yet: if main.py cannot import arduino.app_utils, run ./setup_bridge.sh"
+    APP_PYTHONPATH="${PYTHONPATH:-}"
+fi
+
+PYTHONPATH="$APP_PYTHONPATH" NODE_HOST=127.0.0.1 "$PY_APP" "$HERE/python/main.py"

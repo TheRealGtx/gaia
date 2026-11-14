@@ -29,3 +29,7 @@ venv/
 Thumbs.db
 .idea/
 .vscode/
+
+# App Lab libraries copied out of its docker image by setup_bridge.sh:
+# tens of MB of binaries, different on every board, never in git.
+.bridge/

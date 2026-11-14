@@ -57,20 +57,21 @@ Bridge calls are the ones in Arduino's own example (`Bridge.begin()`, then
 (`git clone` or `git pull`): the run script needs `aggregate/` next to
 `app_lab/`, because the node and the model live there.
 
-**3. Check that Python can see the Bridge**, before anything else:
+**3. Give the board's Python the Bridge**, once per board:
 
 ```bash
-python3 -c "from arduino.app_utils import App, Bridge; print('bridge ok')"
+./setup_bridge.sh
 ```
 
-If it fails, the library is inside App Lab's environment and not in the system
-Python. Find it and use the interpreter next to it:
-
-```bash
-find / -path '*arduino/app_utils*' -not -path '/proc/*' 2>/dev/null | head
-```
-
-`main.py` prints the same advice if you skip this step.
+The board's `python3` has no `arduino.app_utils` and no `pip`: the library
+ships inside App Lab's docker image. The Bridge itself does not: arduino-router
+runs on the board and listens on `/run/arduino-router.sock`, the container only
+mounts it. So the script copies the image's `site-packages` into `.bridge/`
+(the image's Python is 3.13, the board's too), checks the import works, and
+checks your user may open the socket. If it says you are not in the
+`arduino-router` group, run the `usermod` line it prints and log in again,
+otherwise every Bridge call fails with "permission denied". `main.py` points
+here if you skip this step.
 
 **4. Start the board**, one line per board, from `app_lab/echofield_node/`:
 
@@ -80,8 +81,7 @@ find / -path '*arduino/app_utils*' -not -path '/proc/*' 2>/dev/null | head
 ./run_board.sh 3 2        # board 3, neighbour 2
 ```
 
-Add `PY_APP=/path/to/python` in front if step 3 sent you to another
-interpreter. The script starts `node.py` in the background, checks it came up,
+The script starts `node.py` in the background, checks it came up,
 then runs `main.py` in the foreground; Ctrl-C stops both. The node's own status
 lines go to `/tmp/gaia-node-<id>.log`: watch them from a second SSH session with
 `tail -f`.
