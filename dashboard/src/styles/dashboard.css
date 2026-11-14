@@ -102,3 +102,41 @@
 @media (max-width: 760px) { .left-overlay-stack[data-mobile-visible="true"] { grid-template-rows: minmax(180px,.72fr) minmax(250px,1.28fr); }.settings-layer-actions { grid-template-columns: 1fr; } }
 @media (max-width: 760px) { .alert-banner,.dashboard[data-telemetry-open="true"] .alert-banner { top: 117px; left: 8px; right: 8px; }.operational-cards[data-mobile-visible="true"] { grid-template-columns: 1fr; }.simulation-bar--live { max-width: calc(100% - 16px); text-align: center; }.simulation-bar--live span { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; } }
 @media (prefers-reduced-motion: reduce) { *,*::before,*::after { animation-duration: .01ms !important; animation-iteration-count: 1 !important; scroll-behavior: auto !important; } }
+
+/* Live field: the network graph, with none of the building in it */
+.live-field { display: flex; flex-direction: column; gap: 12px; padding: 14px; height: 100%; min-height: 0; }
+.live-field__head { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 12px; }
+.live-field__status { display: flex; flex-direction: column; gap: 2px; padding: 8px 14px; border: 1px solid var(--border); border-radius: 12px; background: var(--surface-glass); }
+.live-field__status strong { font-size: 18px; letter-spacing: .08em; }
+.live-field__status span { color: var(--text-secondary); font-size: 10px; }
+.live-field__status--normal strong { color: var(--safe-dark); }
+.live-field__status--warning strong,.live-field__status--unknown strong,.live-field__status--stale strong { color: var(--warning-dark); }
+.live-field__status--critical strong { color: var(--critical-dark); }
+.live-field__status--offline strong { color: var(--offline); }
+.live-field__counts { display: flex; gap: 18px; margin: 0; }
+.live-field__counts dt { color: var(--text-muted); font-size: 9px; text-transform: uppercase; letter-spacing: .07em; }
+.live-field__counts dd { margin: 2px 0 0; font-size: 15px; font-weight: 600; }
+.live-field__notice { margin: 0; color: var(--text-secondary); font-size: 11px; }
+.live-field__canvas { flex: 1; min-height: 0; display: flex; align-items: center; justify-content: center; border: 1px solid var(--border); border-radius: 14px; background: var(--surface-subtle); }
+.live-field__canvas svg { width: 100%; height: 100%; }
+.field-link { stroke: var(--border); stroke-width: .7; transition: stroke .3s ease, opacity .3s ease; }
+.field-link--down { stroke-dasharray: 2 2; opacity: .45; }
+.field-link--escape { stroke: var(--safe); stroke-width: 1.2; }
+.field-node { cursor: pointer; }
+.field-node__disc { fill: var(--offline); stroke: var(--surface); stroke-width: .8; transition: fill .35s ease; }
+.field-node--normal .field-node__disc { fill: var(--safe); }
+.field-node--warning .field-node__disc { fill: var(--warning); }
+.field-node--critical .field-node__disc { fill: var(--critical); }
+.field-node--offline { opacity: .5; }
+.field-node__distance { fill: #fff; font-size: 5.4px; font-weight: 700; }
+.field-node__id { fill: var(--text-secondary); font-size: 3.2px; font-weight: 600; }
+.field-node__reading { fill: var(--text-muted); font-size: 2.8px; }
+.field-node__pulse { fill: var(--critical); opacity: .25; animation: pulse 1.4s infinite; }
+.live-field__legend { display: flex; flex-wrap: wrap; align-items: center; gap: 14px; color: var(--text-muted); font-size: 10px; }
+.live-field__legend span { display: inline-flex; align-items: center; gap: 5px; }
+.live-field__legend .dot { width: 8px; height: 8px; border-radius: 99px; display: inline-block; }
+.dot--critical { background: var(--critical); } .dot--warning { background: var(--warning); }
+.dot--safe { background: var(--safe); } .dot--offline { background: var(--offline); }
+.live-field__readonly { margin-left: auto; color: var(--text-secondary); }
+.live-field__switch { border: 1px solid var(--border); border-radius: 8px; padding: 2px 8px; background: var(--surface); color: var(--text-secondary); font: inherit; cursor: pointer; }
+.live-field__switch:hover { color: var(--safe-dark); border-color: var(--safe-border); }

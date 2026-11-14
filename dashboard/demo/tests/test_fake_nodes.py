@@ -28,17 +28,21 @@ class FakeNodeTests(unittest.TestCase):
 
     def test_alert_matches_two_adjacent_hot_nodes_reaching_consensus(self):
         alert = {packet["id"]: packet for packet in build_packets("alert", 1, 1001.0)}
-        self.assertEqual(list(alert), [1, 2])
-        for node in alert.values():
+        self.assertEqual(list(alert), [1, 2, 3])
+        for node_id in (1, 2):
+            node = alert[node_id]
             self.assertGreater(node["anomaly"], 0.7)
             self.assertEqual(node["dist"], 0)
             self.assertIsNone(node["via"])
-            self.assertIsNone(node["escape_to"])
             self.assertTrue(node["alert"])
+        # the third board is one hop away from the pair and must not alert
+        self.assertEqual(alert[3]["dist"], 1)
+        self.assertEqual(alert[3]["via"], 2)
+        self.assertFalse(alert[3]["alert"])
 
     def test_failure_silences_only_one_node_and_rejoin_restores_it(self):
-        self.assertEqual([packet["id"] for packet in build_packets("failure", 2, 1002.0)], [1])
-        self.assertEqual([packet["id"] for packet in build_packets("rejoin", 3, 1003.0)], [1, 2])
+        self.assertEqual([packet["id"] for packet in build_packets("failure", 2, 1002.0)], [1, 3])
+        self.assertEqual([packet["id"] for packet in build_packets("rejoin", 3, 1003.0)], [1, 2, 3])
 
 
 if __name__ == "__main__":

@@ -23,7 +23,7 @@ export function TopBar() {
         <img src="/logo.svg" alt="" /><span>gaia</span>
       </button>
       <nav className="topbar__nav" aria-label="Main navigation">
-        {(["Overview", "Environments", "Sensor Logs"] as const).map((page) => (
+        {(["Overview", "Live field", "Environments", "Sensor Logs"] as const).map((page) => (
           <Button key={page} variant="ghost" aria-current={state.page === page ? "page" : undefined} onClick={() => dispatch({ type: "set-page", page })}>{page}</Button>
         ))}
       </nav>

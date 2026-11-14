@@ -40,3 +40,59 @@ the heat source at demo distance (`hazard.csv`), then on a laptop:
 
 `GAIA_MODE=test` is a wiring check without a node (LEDs red above 30 °C). Never
 use it in the demo.
+
+## Without App Lab: flash with the Arduino IDE, run over SSH
+
+What the mentors suggested, and what gets the Python out of the App Lab
+container, whose network cannot reach the Wi-Fi. On the board's own OS the
+node and this app run side by side and talk over 127.0.0.1.
+
+**1. Flash the sketch** with the Arduino IDE: install the Arduino UNO Q board
+package, then the `Arduino_RouterBridge`, `Modulino` and `Arduino_LED_Matrix`
+libraries from the Library Manager, open `sketch/sketch.ino` and upload. The
+Bridge calls are the ones in Arduino's own example (`Bridge.begin()`, then
+`Bridge.provide("name", fn)` in `setup()`), so `[B1]` in the sketch is settled.
+
+**2. Put the board on the hotspot and SSH into it.** Get the repository there
+(`git clone` or `git pull`): the run script needs `aggregate/` next to
+`app_lab/`, because the node and the model live there.
+
+**3. Give the board's Python the Bridge**, once per board:
+
+```bash
+./setup_bridge.sh
+```
+
+The board's `python3` has no `arduino.app_utils` and no `pip`: the library
+ships inside App Lab's docker image. The Bridge itself does not: arduino-router
+runs on the board and listens on `/run/arduino-router.sock`, the container only
+mounts it. So the script copies the image's `site-packages` into `.bridge/`
+(the image's Python is 3.13, the board's too), checks the import works, and
+checks your user may open the socket. If it says you are not in the
+`arduino-router` group, run the `usermod` line it prints and log in again,
+otherwise every Bridge call fails with "permission denied". `main.py` points
+here if you skip this step.
+
+**4. Start the board**, one line per board, from `app_lab/echofield_node/`:
+
+```bash
+./run_board.sh 1 2        # board 1, neighbour 2
+./run_board.sh 2 1,3      # board 2, neighbours 1 and 3
+./run_board.sh 3 2        # board 3, neighbour 2
+```
+
+The script starts `node.py` in the background, checks it came up,
+then runs `main.py` in the foreground; Ctrl-C stops both. The node's own status
+lines go to `/tmp/gaia-node-<id>.log`: watch them from a second SSH session with
+`tail -f`.
+
+**5. Check the two lines that matter.** `main.py` prints
+`node.py expected at 127.0.0.1:5006 (board OS, e.g. over SSH)`: if it says
+`App Lab container` instead, you are not where you think you are. The node log
+starts with `my address 10.x.x.x, sending to ...`: that address must be the
+Wi-Fi one. If the boards still cannot hear each other, run
+`python3 aggregate/netcheck.py` on all of them at once.
+
+`main.py` decides by itself which of the two worlds it is in (the App Lab
+container or the board's OS), so the same file works in both. `NODE_HOST`
+overrides the guess if it is ever wrong.

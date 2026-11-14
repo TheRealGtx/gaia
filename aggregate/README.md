@@ -30,7 +30,7 @@ NODE_ID=2 NEIGHBORS=1 python3 node.py
 ```
 
 Three nodes in a line are `1 -> 2`, `2 -> 1,3`, `3 -> 2`. Several nodes on one
-laptop need `MODE=unicast` (each node then owns port 5000+id), or just use
+laptop need `MODE=unicast` (each node then owns port 5200+id), or just use
 `sim.py`, which does it for you.
 
 When the access point blocks broadcast — most phone hotspots and all guest
@@ -55,7 +55,7 @@ hardware stays in the app and reaches the node through the sensor bridge below.
 | --- | --- |
 | 5005 | heartbeats between nodes, and what the dashboard listens to (read-only) |
 | 5006 | sensor bridge: the App Lab app sends readings, the node answers with its state |
-| 5000+id | heartbeats in `MODE=unicast`, for several nodes on one laptop |
+| 5200+id | heartbeats in `MODE=unicast`, for several nodes on one laptop (5000+id would put a fifth node on 5005) |
 
 ## The sensor bridge
 
