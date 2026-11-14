@@ -87,7 +87,8 @@ PEERS     = _env_peers("PEERS")                           # {neighbour id: addre
 # problem and is not one.
 PORT      = int(os.environ.get("PORT", 5200 + NODE_ID if MODE == "unicast" else 5005))
 
-# The App Lab app talks to this port. One node per board in broadcast mode, so
+# The sensor app (app_lab/.../main.py, in App Lab or over SSH) talks to this
+# port. One node per board in broadcast mode, so
 # 5006 for everyone; in unicast several nodes share a laptop, so one port each.
 SENSOR_PORT = int(os.environ.get("SENSOR_PORT",
                                  5100 + NODE_ID if MODE == "unicast" else 5006))
@@ -179,7 +180,7 @@ def anomaly_source():
     if ANOMALY_SRC == "auto" and (read_sensor is not None or bridge["seen"]):
         return "Chuqi's model on the sensor"
     if ANOMALY_SRC == "auto":
-        return "keyboard until the App Lab app sends a reading"
+        return "keyboard until the sensor app sends a reading"
     return "keyboard"
 
 def reading_fields(r):
@@ -681,7 +682,7 @@ def main(sensor=None, score=None):
     print("node %d  mode=%s port=%d neighbours=%s  anomaly=%s  sensor=%s"
           % (NODE_ID, MODE, PORT, sorted(NEIGHBORS), anomaly_source(),
              "real" if read_sensor else ("fake" if FAKE_SENSOR else "off")), flush=True)
-    print("sensor bridge listening on UDP %d (App Lab app -> readings, <- state)"
+    print("sensor bridge listening on UDP %d (sensor app -> readings, <- state)"
           % SENSOR_PORT, flush=True)
     print("my address %s, sending to %s"
           % (local_ip() or "unknown", ", ".join("%s:%d" % d for d in destinations())),
