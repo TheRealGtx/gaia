@@ -23,7 +23,7 @@ export function sensorMarkerColor(status: SensorStatus): string {
 }
 
 export function calculateSceneViewOffset(panelOpen: boolean, viewportWidth: number): number {
-  if (!panelOpen || viewportWidth <= 760) return 0;
+  if (!panelOpen || viewportWidth <= 1180) return 0;
   const panelWidth = Math.min(430, Math.max(310, viewportWidth * 0.32));
   return -(panelWidth + 24) / 2;
 }

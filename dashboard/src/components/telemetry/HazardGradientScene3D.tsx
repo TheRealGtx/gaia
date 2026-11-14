@@ -5,6 +5,7 @@ import { Canvas, useThree } from "@react-three/fiber";
 import { useEffect } from "react";
 import { PerspectiveCamera } from "three";
 import type { DataSource, EnvironmentId } from "../../domain/types";
+import type { ColorTheme } from "../../state/theme";
 import { gradientFieldColor, liveGradientColor } from "../../domain/hazardGradient";
 import { applyPerspectiveCameraView, type CameraSyncChannel } from "../scene/cameraSync";
 import { fitHazardGradientScene, type HazardGradientSceneModel, type HazardGradientSceneNode } from "./hazardGradientSceneModel";
@@ -14,12 +15,14 @@ function GradientSensorPoint({
   color,
   radius,
   source,
+  theme,
   onSelect,
 }: {
   node: HazardGradientSceneNode;
   color: string;
   radius: number;
   source: boolean;
+  theme: ColorTheme;
   onSelect(): void;
 }) {
   const emphasized = source || node.selected;
@@ -38,7 +41,7 @@ function GradientSensorPoint({
       {emphasized ? (
         <mesh>
           <sphereGeometry args={[radius * (node.selected ? 1.55 : 1.38), 16, 16]} />
-          <meshBasicMaterial color={node.selected ? "#ffffff" : "#83d67a"} wireframe transparent opacity={.9} />
+          <meshBasicMaterial color={theme === "light" ? (node.selected ? "#233128" : "#3f6938") : (node.selected ? "#ffffff" : "#83d67a")} wireframe transparent opacity={.9} />
         </mesh>
       ) : null}
     </group>
@@ -70,6 +73,7 @@ export function HazardGradientScene3D({
   cameraSync,
   environmentId,
   mode,
+  theme,
   maxLevel,
   sourceId,
   onSelectSensor,
@@ -78,6 +82,7 @@ export function HazardGradientScene3D({
   cameraSync: CameraSyncChannel;
   environmentId: EnvironmentId;
   mode: DataSource;
+  theme: ColorTheme;
   maxLevel: number;
   sourceId: string | null;
   onSelectSensor(sensorId: string): void;
@@ -98,7 +103,7 @@ export function HazardGradientScene3D({
           <Line
             key={`${link.sourceId}-${link.targetId}`}
             points={[link.source, link.target]}
-            color={highlighted ? "#cbd5e1" : "#69727d"}
+            color={theme === "light" ? (highlighted ? "#334b3e" : "#667c6c") : (highlighted ? "#cbd5e1" : "#69727d")}
             lineWidth={highlighted ? 1.8 : 1}
             transparent
             opacity={highlighted ? .92 : .5}
@@ -113,7 +118,8 @@ export function HazardGradientScene3D({
             ? liveGradientColor(node.level, node.offline, Boolean(sourceId))
             : gradientFieldColor(node.level, maxLevel, node.offline, Boolean(sourceId))}
           radius={frame.pointRadius}
-          source={node.sensorId === sourceId}
+          source={node.level === 0 && !node.offline}
+          theme={theme}
           onSelect={() => onSelectSensor(node.sensorId)}
         />
       ))}

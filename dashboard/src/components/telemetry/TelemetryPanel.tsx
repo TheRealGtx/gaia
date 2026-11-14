@@ -27,10 +27,10 @@ export function TelemetryPanel() {
     return startModelAgeTicker(setModelAgeNow);
   }, [sensorDetailsVisible]);
   return (
-    <aside className="telemetry-panel" data-mobile-visible={state.mobilePanel === "sensors"} aria-hidden={!state.telemetryPanelOpen && state.mobilePanel !== "sensors"}>
+    <aside className="telemetry-panel" aria-label="Sensor telemetry">
       <header className="telemetry-panel__header">
         <SegmentedControl label="Sensor panel content" value={state.telemetryView} options={[{ value: "telemetry", label: "Telemetry" }, { value: "sensors", label: "Sensor nodes" }]} onChange={(view) => dispatch({ type: "set-telemetry-view", view })} />
-        <Button className="telemetry-close-button" icon={PanelLeftClose} iconOnly variant="ghost" onClick={() => dispatch({ type: "toggle-telemetry-panel" })} aria-label="Close sensor telemetry panel" />
+        <Button className="telemetry-close-button" icon={PanelLeftClose} iconOnly variant="ghost" onClick={() => { dispatch({ type: "toggle-telemetry-panel" }); document.getElementById("sensor-panel-toggle")?.focus(); }} aria-label="Close sensor telemetry panel" />
       </header>
       <div className="telemetry-panel__content">
         {state.telemetryView === "telemetry" ? (

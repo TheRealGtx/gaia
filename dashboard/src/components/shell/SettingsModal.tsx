@@ -1,6 +1,6 @@
 "use client";
 
-import { Layers3, Monitor, Moon, Settings, Sun, X } from "lucide-react";
+import { Monitor, Moon, Settings, Sun, X } from "lucide-react";
 import { useEffect } from "react";
 import type { ThemePreference } from "../../state/theme";
 import { useGaiaActions, useGaiaState } from "../../state/hooks";
@@ -38,11 +38,7 @@ export function SettingsModal({ open, onClose }: { open: boolean; onClose(): voi
           />
         </div>
         <div className="settings-section">
-          <div><strong>Map layers</strong><small>Choose the information floating over the digital twin.</small></div>
-          <div className="settings-layer-actions">
-            <Button icon={Layers3} variant={state.showRoutes ? "active" : "outline"} aria-pressed={state.showRoutes} onClick={() => dispatch({ type: "toggle-routes" })}>Evacuation routes</Button>
-            <Button icon={Layers3} variant={state.showNetwork ? "active" : "outline"} aria-pressed={state.showNetwork} onClick={() => dispatch({ type: "toggle-network" })}>Mesh links</Button>
-          </div>
+          <div><strong>Data connection</strong><small>{state.mode === "simulation" ? "Simulation · Local mesh model" : `Live gateway · ${state.globalConnection}`}</small><small>Dashboard is read-only: the network works without it.</small></div>
         </div>
       </section>
     </div>

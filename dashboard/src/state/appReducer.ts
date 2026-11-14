@@ -59,25 +59,36 @@ export function createInitialAppState(): AppState {
   const environments = Object.fromEntries(
     ENVIRONMENTS.map((definition) => [definition.id, createInitialEnvironmentState(definition)]),
   ) as Record<EnvironmentId, EnvironmentState>;
+  const activeEnvironmentId: EnvironmentId = "forest-north";
   return {
     theme: "light",
     themePreference: "system",
     mode: "simulation",
     environments,
-    activeEnvironmentId: "building-a",
-    selectedSensorId: environments["building-a"].definition.defaultSensorId,
+    activeEnvironmentId,
+    selectedSensorId: environments[activeEnvironmentId].definition.defaultSensorId,
     selectedRoomId: null,
-    selectedOriginId: environments["building-a"].definition.defaultOriginId,
+    selectedOriginId: environments[activeEnvironmentId].definition.defaultSensorId,
     selectedFloorId: "all",
     page: "Overview",
     mobilePanel: "map",
     telemetryPanelOpen: true,
     telemetryView: "telemetry",
     showRoutes: true,
-    showNetwork: true,
+    showNetwork: false,
     cameraResetToken: 0,
     globalConnection: "connected",
     logs: [],
+  };
+}
+
+function sensorSelection(environment: EnvironmentState, sensorId: string) {
+  const sensor = environment.sensors.find((item) => item.id === sensorId);
+  const room = environment.definition.rooms.find((item) => item.id === sensor?.roomId);
+  return {
+    selectedSensorId: sensor?.id ?? "",
+    selectedRoomId: room?.id ?? null,
+    selectedOriginId: environment.definition.kind === "forest" ? sensor?.id ?? "" : room?.waypointId ?? environment.definition.defaultOriginId,
   };
 }
 
@@ -121,9 +132,7 @@ export function appReducer(state: AppState, action: AppAction): AppState {
     return {
       ...state,
       activeEnvironmentId: action.environmentId,
-      selectedSensorId: environment.definition.defaultSensorId,
-      selectedRoomId: null,
-      selectedOriginId: environment.definition.defaultOriginId,
+      ...sensorSelection(environment, environment.definition.defaultSensorId),
       selectedFloorId: "all",
       page: "Overview",
       mobilePanel: "map",
@@ -133,14 +142,8 @@ export function appReducer(state: AppState, action: AppAction): AppState {
   }
   if (action.type === "select-sensor") {
     const environment = state.environments[state.activeEnvironmentId];
-    const sensor = environment.sensors.find((item) => item.id === action.sensorId);
-    const room = sensor?.roomId ? environment.definition.rooms.find((item) => item.id === sensor.roomId) : null;
-    return {
-      ...state,
-      selectedSensorId: action.sensorId,
-      selectedRoomId: room?.id ?? null,
-      selectedOriginId: room?.waypointId ?? environment.definition.defaultOriginId,
-    };
+    if (!environment.sensors.some((sensor) => sensor.id === action.sensorId)) return state;
+    return { ...state, ...sensorSelection(environment, action.sensorId) };
   }
   if (action.type === "select-room") {
     const room = state.environments[state.activeEnvironmentId].definition.rooms.find((item) => item.id === action.roomId);
@@ -154,7 +157,8 @@ export function appReducer(state: AppState, action: AppAction): AppState {
   if (action.type === "set-mode") {
     if (action.mode === "simulation") {
       const environments = Object.fromEntries(ENVIRONMENTS.map((definition) => [definition.id, createInitialEnvironmentState(definition)])) as Record<EnvironmentId, EnvironmentState>;
-      return { ...state, mode: "simulation", environments, globalConnection: "connected", selectedSensorId: environments[state.activeEnvironmentId].definition.defaultSensorId };
+      const environment = environments[state.activeEnvironmentId];
+      return { ...state, mode: "simulation", environments, globalConnection: "connected", ...sensorSelection(environment, environment.definition.defaultSensorId) };
     }
     const environments = Object.fromEntries(Object.entries(state.environments).map(([rawId, environment]) => {
       const id = rawId as EnvironmentId;
@@ -173,7 +177,8 @@ export function appReducer(state: AppState, action: AppAction): AppState {
         source: "live" as const, connection: "connecting" as const,
       }];
     })) as unknown as Record<EnvironmentId, EnvironmentState>;
-    return { ...state, mode: "live", environments, globalConnection: "connecting", selectedSensorId: environments[state.activeEnvironmentId].sensors[0]?.id ?? "" };
+    const environment = environments[state.activeEnvironmentId];
+    return { ...state, mode: "live", environments, globalConnection: "connecting", ...sensorSelection(environment, environment.sensors[0]?.id ?? "") };
   }
   if (action.type === "toggle-routes") return { ...state, showRoutes: !state.showRoutes };
   if (action.type === "toggle-network") return { ...state, showNetwork: !state.showNetwork };

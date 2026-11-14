@@ -1,22 +1,25 @@
 :root {
   color-scheme: light;
-  --surface: #ffffff;
-  --surface-subtle: #f8fafc;
-  --surface-muted: #f1f5f9;
-  --surface-glass: rgba(255, 255, 255, .92);
-  --surface-glass-soft: rgba(255, 255, 255, .88);
-  --surface-glass-subtle: rgba(255, 255, 255, .82);
-  --topbar-surface: rgba(255, 255, 255, .96);
-  --canvas-surface: #f7faf9;
-  --canvas-center: #ffffff;
-  --canvas-middle: #f5f8f6;
-  --canvas-edge: #eef3f1;
-  --border: #e2e8f0;
-  --border-soft: #edf2f7;
-  --hover-border: #cbd5e1;
-  --text: #0f172a;
-  --text-secondary: #475569;
-  --text-muted: #94a3b8;
+  --surface: #f5f4ee;
+  --surface-subtle: #eceee7;
+  --surface-muted: #e0e5dc;
+  --surface-glass: rgba(245, 244, 238, .94);
+  --surface-glass-soft: rgba(245, 244, 238, .92);
+  --surface-glass-subtle: rgba(245, 244, 238, .88);
+  --topbar-surface: rgba(235, 238, 229, .97);
+  --canvas-surface: #dce3d8;
+  --canvas-center: #e8ece3;
+  --canvas-middle: #dce3d8;
+  --canvas-edge: #cbd6c8;
+  --gradient-surface: #dce3d8;
+  --gradient-glow: rgba(245, 244, 238, .5);
+  --gradient-shadow: rgba(48, 65, 49, .08);
+  --border: #cbd3c6;
+  --border-soft: #dce1d5;
+  --hover-border: #9cae98;
+  --text: #233128;
+  --text-secondary: #4b5c50;
+  --text-muted: #566351;
   --safe: #10b981;
   --safe-dark: #047857;
   --safe-bg: #ecfdf5;
@@ -34,9 +37,6 @@
   --button-dark: #0f172a;
   --button-dark-hover: #1e293b;
   --button-dark-text: #ffffff;
-  --simulation-surface: rgba(15, 23, 42, .94);
-  --simulation-border: #253248;
-  --simulation-muted: #94a3b8;
   --building-visual: #edf5f0;
   --building-visual-text: #3e6c54;
   --forest-visual: #e5efe1;
@@ -46,7 +46,6 @@
   --radius-lg: 16px;
   --shadow-low: 0 1px 2px rgba(15, 23, 42, .04);
   --shadow-float: 0 12px 30px rgba(15, 23, 42, .09);
-  --topbar-height: 64px;
 }
 
 
@@ -67,6 +66,9 @@
   --canvas-center: #161616;
   --canvas-middle: #101010;
   --canvas-edge: #080808;
+  --gradient-surface: #0b0e12;
+  --gradient-glow: rgba(31, 41, 55, .24);
+  --gradient-shadow: rgba(0, 0, 0, .38);
 
   --border: #202020;
   --border-soft: #252525;
@@ -98,9 +100,6 @@
   --button-dark-hover: #353535;
   --button-dark-text: #f8fafc;
 
-  --simulation-surface: rgba(9, 9, 9, .95);
-  --simulation-border: #383838;
-  --simulation-muted: #999999;
 
   --building-visual: #12271f;
   --building-visual-text: #80c9a4;

@@ -5,7 +5,7 @@ import {
   deriveLiveHazardGradient,
   gradientFieldColor,
   liveGradientStateLabel,
-  selectSimulatedHazardSource,
+  selectSimulatedHazardSources,
 } from "./hazardGradient.ts";
 import { ENVIRONMENT_BY_ID } from "../config/environments.ts";
 import { applySimulationAction, createInitialEnvironmentState } from "../simulation/engine.ts";
@@ -45,10 +45,10 @@ describe("hazard gradient", () => {
 
   it("does not invent a heat source in a nominal simulation", () => {
     const initial = createInitialEnvironmentState(ENVIRONMENT_BY_ID["forest-north"]);
-    assert.equal(selectSimulatedHazardSource(initial), null);
+    assert.deepEqual(selectSimulatedHazardSources(initial), []);
 
     const alarm = applySimulationAction(initial, { type: "confirm-fire", sensorId: initial.definition.fireSensorId });
-    assert.equal(selectSimulatedHazardSource(alarm), initial.definition.fireSensorId);
+    assert.deepEqual(selectSimulatedHazardSources(alarm), [initial.definition.fireSensorId]);
   });
 
   it("uses network-reported distance in live mode and leaves 99 unknown", () => {

@@ -1,27 +1,34 @@
 "use client";
 
-import { Ban, Flame, Network, RefreshCw, ThermometerSun, TriangleAlert, WifiOff } from "lucide-react";
+import { Ban, Flame, FlaskConical, Network, RefreshCw, ThermometerSun, TriangleAlert, WifiOff } from "lucide-react";
 import { useGaiaActions, useGaiaState } from "../../state/hooks";
 import { selectActiveEnvironment } from "../../state/selectors";
-import { Button } from "../ui";
+import { Button, Card } from "../ui";
 
 export function SimulationBar() {
   const state = useGaiaState();
   const { dispatch, runSimulation } = useGaiaActions();
   const environment = selectActiveEnvironment(state);
-  if (state.mode !== "simulation") return <div className="simulation-bar simulation-bar--live"><Network size={15} /><span>Dashboard is read-only: the network works without it.</span><strong>{state.globalConnection}</strong></div>;
-  const hasFire = environment.hazards.some((hazard) => hazard.kind === "simulated-fire");
+  if (state.mode !== "simulation") return null;
+  const fires = environment.hazards.filter((hazard) => hazard.kind === "simulated-fire");
+  const hasFire = fires.some((hazard) => hazard.sourceSensorId === state.selectedSensorId);
   const blocked = environment.blockedEdgeIds.includes(environment.definition.blockableEdgeId);
   return (
-    <div className="simulation-bar" role="group" aria-label="Simulation controls">
-      <span className="simulation-bar__label">Simulate</span>
-      <Button variant={hasFire ? "danger" : "dark"} icon={Flame} aria-pressed={hasFire} onClick={() => runSimulation({ type: "confirm-fire", sensorId: state.selectedSensorId })}>Fire at {state.selectedSensorId}</Button>
-      <Button variant={blocked ? "active" : "dark"} icon={Ban} aria-pressed={blocked} onClick={() => runSimulation({ type: "block-edge", edgeId: environment.definition.blockableEdgeId })}>{environment.definition.kind === "building" ? "Block corridor" : "Block trail"}</Button>
-      <Button variant="dark" icon={WifiOff} onClick={() => runSimulation({ type: "disable-node", sensorId: state.selectedSensorId })}>Disable {state.selectedSensorId}</Button>
-      <Button variant="dark" icon={ThermometerSun} onClick={() => runSimulation({ type: "increase-temperature", sensorId: state.selectedSensorId, delta: 5 })}>+5°C</Button>
-      <Button variant="dark" icon={TriangleAlert} onClick={() => runSimulation({ type: "simulate-anomaly", sensorId: state.selectedSensorId })}>Anomaly</Button>
-      <Button variant="dark" icon={Network} onClick={() => runSimulation({ type: "network-failure", sensorIds: [environment.definition.offlineSensorId] })}>Network fault</Button>
-      <Button variant="dark" icon={RefreshCw} onClick={() => { runSimulation({ type: "reset" }); dispatch({ type: "reset-camera" }); }}>Reset</Button>
-    </div>
+    <Card className="operation-card">
+      <header><span className="operation-icon"><FlaskConical size={15} aria-hidden="true" /></span><h2>Simulation controls</h2></header>
+      <div className="simulation-panel__content">
+        <p>Apply a scenario to <strong>{state.selectedSensorId}</strong>. Select another node from the map or Sensors.</p>
+        <p>{fires.length} active {fires.length === 1 ? "fire" : "fires"}. Select another sensor to add a fire; Reset clears all scenarios.</p>
+        <div className="simulation-bar" role="group" aria-label="Simulation controls">
+          <Button variant={hasFire ? "danger" : "outline"} icon={Flame} disabled={hasFire} onClick={() => runSimulation({ type: "confirm-fire", sensorId: state.selectedSensorId })}>{hasFire ? "Fire active at" : "Add fire at"} {state.selectedSensorId}</Button>
+          <Button variant={blocked ? "active" : "outline"} icon={Ban} aria-pressed={blocked} onClick={() => runSimulation({ type: "block-edge", edgeId: environment.definition.blockableEdgeId })}>{environment.definition.kind === "building" ? "Block corridor" : "Block trail"}</Button>
+          <Button icon={WifiOff} onClick={() => runSimulation({ type: "disable-node", sensorId: state.selectedSensorId })}>Disable {state.selectedSensorId}</Button>
+          <Button icon={ThermometerSun} onClick={() => runSimulation({ type: "increase-temperature", sensorId: state.selectedSensorId, delta: 5 })}>+5°C</Button>
+          <Button icon={TriangleAlert} onClick={() => runSimulation({ type: "simulate-anomaly", sensorId: state.selectedSensorId })}>Anomaly</Button>
+          <Button icon={Network} onClick={() => runSimulation({ type: "network-failure", sensorIds: [environment.definition.offlineSensorId] })}>Network fault</Button>
+          <Button icon={RefreshCw} onClick={() => { runSimulation({ type: "reset" }); dispatch({ type: "reset-camera" }); }}>Reset</Button>
+        </div>
+      </div>
+    </Card>
   );
 }

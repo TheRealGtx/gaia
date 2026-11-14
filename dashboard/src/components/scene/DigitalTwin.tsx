@@ -87,13 +87,17 @@ export function DigitalTwin({ cameraSync }: { cameraSync: CameraSyncChannel }) {
   const { environment, bestRoute } = selectDashboard(state);
   const model = createSceneModel(environment, state.showRoutes ? bestRoute : null, state.selectedFloorId);
   return (
-    <section className="digital-twin" data-mobile-visible={state.mobilePanel === "map"} aria-label={`Interactive 3D digital twin of ${environment.definition.name}`}>
+    <section className="digital-twin" aria-label={`Interactive 3D digital twin of ${environment.definition.name}`}>
       <Suspense fallback={<div className="scene-loading">Loading digital twin…</div>}>
         <Canvas key={`${environment.definition.id}-${state.cameraResetToken}`} shadows={{ type: DEFAULT_SHADOW_MAP }} dpr={[1, 1.5]} camera={{ position: environment.definition.kind === "building" ? [46, 34, 46] : [58, 46, 60], fov: 35, near: .1, far: 260 }}>
           <SceneLayout panelOpen={state.telemetryPanelOpen} />
-          <color attach="background" args={[state.theme === "dark" ? "#070b10" : "#f7faf9"]} />
-          <ambientLight intensity={1.4} />
-          <directionalLight castShadow position={[14, 24, 18]} intensity={2.4} shadow-mapSize={[1024, 1024]} />
+          <color attach="background" args={[state.theme === "dark" ? "#070b10" : "#dce3d8"]} />
+          <ambientLight intensity={.45} />
+          <hemisphereLight args={["#dce7ed", "#626449", 1.15]} />
+          <directionalLight castShadow position={[24, 52, 28]} color="#fff1d6" intensity={2.2}
+            shadow-mapSize={[2048, 2048]} shadow-camera-left={-52} shadow-camera-right={52}
+            shadow-camera-top={44} shadow-camera-bottom={-44} shadow-camera-near={1}
+            shadow-camera-far={140} shadow-normalBias={.06} shadow-bias={-.0001} />
           {environment.definition.kind === "building" ? <BuildingScene definition={environment.definition} floorId={state.selectedFloorId} selectedRoomId={state.selectedRoomId} onSelectRoom={(roomId) => dispatch({ type: "select-room", roomId })} /> : <ForestScene definition={environment.definition} />}
           {state.showNetwork ? <NetworkLinks topology={{ ...environment.topology, connections: model.networkLinks }} sensors={model.sensors} selectedId={state.selectedSensorId} /> : null}
           {model.hazards.map((hazard) => <HazardMarker key={hazard.id} hazard={hazard} />)}

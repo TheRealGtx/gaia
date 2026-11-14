@@ -16,7 +16,9 @@ describe("Three.js rendering configuration", () => {
 
   it("shifts the scene toward the free area only while the desktop overlay is open", () => {
     assert.equal(calculateSceneViewOffset(true, 1440), -227);
-    assert.equal(calculateSceneViewOffset(true, 1000), -172);
+    assert.equal(calculateSceneViewOffset(true, 1000), 0);
+    assert.equal(calculateSceneViewOffset(true, 1180), 0);
+    assert.ok(calculateSceneViewOffset(true, 1181) < 0);
     assert.equal(calculateSceneViewOffset(false, 1440), 0);
     assert.equal(calculateSceneViewOffset(true, 600), 0);
   });

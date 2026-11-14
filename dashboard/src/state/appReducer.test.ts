@@ -4,8 +4,20 @@ import { applySimulationAction } from "../simulation/engine.ts";
 import { appReducer, createInitialAppState } from "./appReducer.ts";
 
 describe("application state", () => {
-  it("switches environments without sharing their scenario state", () => {
+  it("opens Forest North with its own sensor and route origin selected", () => {
     const initial = createInitialAppState();
+    const forest = initial.environments["forest-north"];
+    assert.equal(initial.activeEnvironmentId, "forest-north");
+    assert.equal(initial.selectedSensorId, "N-20");
+    assert.ok(forest.sensors.some((sensor) => sensor.id === initial.selectedSensorId));
+    assert.equal(initial.selectedOriginId, initial.selectedSensorId);
+    assert.equal(initial.selectedRoomId, null);
+    assert.equal(initial.page, "Overview");
+    assert.equal(initial.mobilePanel, "map");
+  });
+
+  it("switches environments without sharing their scenario state", () => {
+    const initial = appReducer(createInitialAppState(), { type: "select-environment", environmentId: "building-a" });
     const building = initial.environments["building-a"];
     const changedBuilding = applySimulationAction(building, { type: "confirm-fire", sensorId: "A-04" });
     const withFire = appReducer(initial, { type: "environment-event", event: { type: "snapshot", environment: changedBuilding } });
@@ -17,7 +29,7 @@ describe("application state", () => {
   });
 
   it("keeps room and sensor selection synchronized with the active environment", () => {
-    const initial = createInitialAppState();
+    const initial = appReducer(createInitialAppState(), { type: "select-environment", environmentId: "building-a" });
     const selected = appReducer(initial, { type: "select-sensor", sensorId: "A-04" });
     assert.equal(selected.selectedSensorId, "A-04");
     assert.equal(selected.selectedRoomId, "storage-room");
@@ -28,7 +40,7 @@ describe("application state", () => {
   });
 
   it("changes the visible building floor only through the floor selector", () => {
-    const initial = createInitialAppState();
+    const initial = appReducer(createInitialAppState(), { type: "select-environment", environmentId: "building-a" });
     const upperSensor = initial.environments["building-a"].sensors.find((sensor) => sensor.floorId === "level-3")!;
     const upperRoom = initial.environments["building-a"].definition.rooms.find((room) => room.floorId === "level-3")!;
 
@@ -43,7 +55,7 @@ describe("application state", () => {
   });
 
   it("marks live mode and preserves a disconnected state as non-nominal", () => {
-    const initial = createInitialAppState();
+    const initial = appReducer(createInitialAppState(), { type: "select-environment", environmentId: "building-a" });
     const live = appReducer(initial, { type: "set-mode", mode: "live" });
     const disconnected = appReducer(live, {
       type: "environment-event",
@@ -56,7 +68,7 @@ describe("application state", () => {
   });
 
   it("clears simulated evidence when entering live mode and live evidence when returning", () => {
-    const initial = createInitialAppState();
+    const initial = appReducer(createInitialAppState(), { type: "select-environment", environmentId: "building-a" });
     const building = applySimulationAction(initial.environments["building-a"], { type: "confirm-fire", sensorId: "A-04" });
     const withFire = appReducer(initial, { type: "environment-event", event: { type: "snapshot", environment: building } });
     const live = appReducer(withFire, { type: "set-mode", mode: "live" });
@@ -69,15 +81,26 @@ describe("application state", () => {
     assert.equal(simulation.environments["building-a"].sensors.every((sensor) => sensor.reading.source === "simulation"), true);
   });
 
-  it("opens and closes the floating telemetry panel", () => {
+  it("shows sensor details initially and lets the user close and reopen them", () => {
     const initial = createInitialAppState();
     assert.equal(initial.telemetryPanelOpen, true);
 
     const closed = appReducer(initial, { type: "toggle-telemetry-panel" });
     assert.equal(closed.telemetryPanelOpen, false);
-
+    assert.equal(closed.selectedSensorId, initial.selectedSensorId);
     const reopened = appReducer(closed, { type: "toggle-telemetry-panel" });
     assert.equal(reopened.telemetryPanelOpen, true);
+  });
+
+  it("keeps routes visible while mesh links can be enabled independently", () => {
+    const initial = createInitialAppState();
+    assert.equal(initial.showNetwork, false);
+    assert.equal(initial.showRoutes, true);
+    const withMesh = appReducer(initial, { type: "toggle-network" });
+    assert.equal(withMesh.showNetwork, true);
+    assert.equal(withMesh.showRoutes, true);
+    assert.equal(withMesh.environments, initial.environments);
+    assert.equal(appReducer(withMesh, { type: "toggle-network" }).showNetwork, false);
   });
 
   it("applies explicit and system color-theme preferences", () => {

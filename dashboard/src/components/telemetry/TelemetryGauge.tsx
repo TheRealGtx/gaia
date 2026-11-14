@@ -81,7 +81,11 @@ export function TemperatureGaugeCard({
           {maximumPoint ? <circle className="temperature-gauge__edge" cx={maximumPoint.x} cy={maximumPoint.y} r="2.3" /> : null}
           {averagePoint ? <circle className="temperature-gauge__average" cx={averagePoint.x} cy={averagePoint.y} r="3.4" /> : null}
         </svg>
-        <strong>{average === null ? "—" : `${average.toFixed(1)}°`}</strong>
+        <div className="temperature-gauge__readout">
+          <span><small>Low</small><b>{minimum === null ? "—" : `${minimum.toFixed(1)}°`}</b></span>
+          <strong>{average === null ? "—" : `${average.toFixed(1)}°`}</strong>
+          <span><small>High</small><b>{maximum === null ? "—" : `${maximum.toFixed(1)}°`}</b></span>
+        </div>
       </div>
     </article>
   );
