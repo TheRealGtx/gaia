@@ -12,6 +12,10 @@ never decides on them): `temperature` / `humidity` (the raw reading) and
 Chuqi's `bytes_sent` / `bytes_if_raw_data` green-AI counters. Field names are
 the ones Pietro's gateway validates.
 
+The model parameters (`mu`, `sigma`, `n`) ride in one heartbeat out of
+PARAM_EVERY and are absent from the others: that is what federated learning
+actually costs. Whoever reads the messages keeps the last value it saw.
+
 No server, no cloud: the dashboard is only a passive listener.
 
 Run (two boards / two laptops on the same Wi-Fi, broadcast):
@@ -36,9 +40,11 @@ anomaly. ANOMALY_SRC=model runs her real anomaly_score() on those fake
 readings: it tests the whole chain without hardware.
 """
 
+import ipaddress
 import json
 import os
 import socket
+import subprocess
 import sys
 import threading
 import time
@@ -88,6 +94,7 @@ state  = {"anomaly": 0.0, "dist": UNKNOWN, "via": None, "alert": False, "escape_
 params = {"mu": 0.0, "sigma": 1.0, "n": 0}    # overwritten by Chuqi's get_params()
 table  = {}                                   # neighbour id -> (message, last_seen)
 drops  = {}                                   # id -> messages heard but not in NEIGHBORS
+peers  = {}                                   # id -> last {mu, sigma, n} seen from it
 lock   = threading.Lock()                     # protects state, params and table
 fake   = {"anomaly": float(os.environ.get("ANOMALY", 0.0))}   # keyboard-driven test value
 sensor = {"last": None}                       # last raw reading, sent for the dashboard
@@ -226,22 +233,72 @@ def local_ip():
     finally:
         s.close()
 
-def broadcast_addrs():
-    """255.255.255.255 plus the subnet broadcast of the outgoing interface.
+_bcast = None                                   # broadcast_addrs() cache
 
-    Two things that cost an hour of debugging on real boards: some access points
-    and some Linux setups drop the limited broadcast, and a board with a USB
-    link up may route 255.255.255.255 out of the wrong interface. The
-    subnet-directed address (x.y.z.255, /24 assumed) gets through where the
-    other does not. BROADCAST=<addr> overrides both and sends to that one only.
+def iface_networks():
+    """Every non-loopback IPv4 address of this machine, with its real netmask,
+    read from `ip -o -4 addr`. Empty when there is no `ip` command (Windows).
+
+    The netmask has to be read, not guessed: the Junction Wi-Fi is a /20
+    (10.0.32.0/20), where 10.0.38.255 is not a broadcast address but just
+    another host, so a packet sent there reaches nobody.
     """
-    if "BROADCAST" in os.environ:
-        return [os.environ["BROADCAST"]]
+    try:
+        out = subprocess.run(["ip", "-o", "-4", "addr"], capture_output=True,
+                             text=True, timeout=2).stdout
+    except (OSError, ValueError, subprocess.SubprocessError):
+        return []
+    found = []
+    for line in out.splitlines():
+        for token in line.split():
+            if "/" in token and token[0].isdigit():
+                try:
+                    itf = ipaddress.ip_interface(token)
+                except ValueError:
+                    break
+                if itf.version == 4 and not itf.ip.is_loopback:
+                    found.append(itf)
+                break
+    return found
+
+def broadcast_addrs():
+    """255.255.255.255 plus the subnet broadcast of EVERY local interface.
+
+    One address is not enough. Both Windows and Linux send the limited
+    broadcast out of a single interface, the one with the best route, and that
+    is not necessarily the Wi-Fi: measured on the demo laptop, 255.255.255.255
+    left through the VirtualBox adapter while only the subnet-directed address
+    reached the Wi-Fi. A board with its USB link up behaves the same way, which
+    is how three boards on the same Wi-Fi end up hearing nothing.
+
+    So we send one copy per interface. A neighbour reachable twice receives two
+    identical heartbeats per second, which is harmless (the neighbour table just
+    overwrites), and the dashboard de-duplicates by node id anyway.
+
+    BROADCAST=<addr> overrides all of it and sends to that one address only;
+    PEERS bypasses broadcast entirely.
+    """
+    global _bcast
+    if _bcast is not None:                          # computed once: `ip` is not
+        return _bcast                               # worth a subprocess per
+    if "BROADCAST" in os.environ:                   # second, and the warning is
+        _bcast = [os.environ["BROADCAST"]]          # not worth repeating
+        return _bcast
     addrs = ["255.255.255.255"]
-    ip = local_ip()
-    if ip and not ip.startswith("127.") and ip.count(".") == 3:
-        addrs.append(ip.rsplit(".", 1)[0] + ".255")
-    return addrs
+    for itf in iface_networks():
+        b = str(itf.network.broadcast_address)
+        if b not in addrs:
+            addrs.append(b)
+    if len(addrs) == 1:                             # no `ip` command: one guess
+        ip = local_ip()
+        if ip and not ip.startswith("127.") and ip.count(".") == 3:
+            print("warning: cannot read the netmasks, assuming /24 for %s. On a "
+                  "wider network (a /20 conference Wi-Fi, say) that address "
+                  "belongs to nobody: set BROADCAST=<x.y.z.255> or use PEERS."
+                  % ip, flush=True)
+            addrs.append(ip.rsplit(".", 1)[0] + ".255")
+    _bcast = addrs
+    return _bcast
 
 BCAST = broadcast_addrs()
 
@@ -256,12 +313,23 @@ def destinations():
 def send_loop():
     s = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
     s.setsockopt(socket.SOL_SOCKET, socket.SO_BROADCAST, 1)
+    next_params = 0.0                               # the first heartbeat carries them
     while running.is_set():
+        now = time.time()
         with lock:
-            params.update(local_params())
-            msg = {"id": NODE_ID, **state, **params,
+            msg = {"id": NODE_ID, **state,
                    **reading_fields(sensor["last"]), **byte_counters(),
-                   "ts": time.time()}
+                   "ts": now}
+            if now >= next_params:
+                # Chuqi's decision (14/11): the parameters go out once every
+                # PARAM_EVERY seconds instead of in every heartbeat. Her
+                # bytes_sent counter is incremented inside get_params(), so
+                # calling it only here makes the green-AI figure measure what we
+                # really spend on learning, instead of fifteen copies the
+                # dashboard did not need. Readers keep the last value they saw.
+                params.update(local_params())
+                msg.update(params)
+                next_params = now + PARAM_EVERY
         data = json.dumps(msg).encode()
         for dest in destinations():
             try:
@@ -302,6 +370,13 @@ def recv_loop():
             continue
         with lock:
             table[mid] = (m, time.time())
+            try:
+                # Only one heartbeat in PARAM_EVERY carries these, so they are
+                # kept aside: the last message alone is not enough to merge.
+                peers[mid] = {"mu": float(m["mu"]), "sigma": float(m["sigma"]),
+                              "n": int(m["n"])}
+            except (KeyError, TypeError, ValueError):
+                pass                                # no parameters this time
 
 # -------------------------------------------------------- aggregate core ----
 
@@ -311,6 +386,7 @@ def alive_locked():
     now = time.time()
     for nid in [nid for nid, (_, t) in table.items() if now - t >= TIMEOUT]:
         del table[nid]                              # a dead neighbour leaves the table
+        peers.pop(nid, None)                        # and takes its parameters with it
     return [m for m, _ in table.values()]
 
 def update():
@@ -356,9 +432,11 @@ def param_loop():
         if merge_params is None:
             continue
         with lock:
-            others = [{"mu": m["mu"], "sigma": m["sigma"], "n": m["n"]}
-                      for m in alive_locked()
-                      if all(k in m for k in ("mu", "sigma", "n"))]
+            alive = set()
+            for m in alive_locked():
+                if isinstance(m.get("id"), int):
+                    alive.add(m["id"])
+            others = [p for nid, p in peers.items() if nid in alive]
         if not others:
             continue
         try:
