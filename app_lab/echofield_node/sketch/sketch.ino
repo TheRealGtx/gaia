@@ -108,20 +108,9 @@ void drawFrame(int tick) {
       for (int c = 0; c < COLS; c++) { setDot(0, c); setDot(ROWS - 1, c); }
     }
   } else if (d == 0) {               // hazard here, nowhere safer to go: blink
-<<<<<<< HEAD
-    if (tick % 2) for (int i = 0; i < ROWS * COLS; i++) frame[i] = 1;
-  } else {                           // no hazard known: a slow heartbeat
-    // Two static pixels read as "off" from a metre away and on camera, which
-    // is how a working board looked broken. A 2x3 block blinking at ~0.8 Hz
-    // says "alive, all clear" (tick is 150 ms: 4 ticks on, 4 off).
-    if ((tick / 4) % 2 == 0) {
-      for (int r = 3; r <= 4; r++) for (int c = 5; c <= 7; c++) setDot(r, c);
-    }
-=======
     if (tick % 2) for (int i = 0; i < ROWS * COLS; i++) frame[i] = ON;
   } else {                           // no hazard known: one quiet dot
     setDot(3, 6); setDot(4, 6);
->>>>>>> 61dc17afd011e94ef22468971c3ac006d4ebac16
   }
   matrix.draw(frame);                // [X1]
 }
