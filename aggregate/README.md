@@ -44,10 +44,11 @@ Type `a` + Enter to toggle the fake anomaly, a number between 0 and 1 to set
 it, `q` to quit. `ANOMALY=1` starts a node already in anomaly, which is how you
 drive a board that has no console.
 
-**On an Arduino UNO Q, run this on the board's host OS, not inside the App Lab
-app.** The App Lab app runs in a container on a docker bridge (172.18.0.2): from
-there the broadcast never reaches the Wi-Fi and no board can hear another. The
-hardware stays in the app and reaches the node through the sensor bridge below.
+**On an Arduino UNO Q this runs on the board's own OS**, as the `gaia-node`
+service (`app_lab/echofield_node/install_service.sh`), next to the sensor app
+that reads the Modulino; the two talk through the sensor bridge below. Never
+inside an App Lab app: App Lab runs apps in a container on a docker bridge
+(172.18.0.2), from where the broadcast never reaches the Wi-Fi.
 
 ## The three ports
 
@@ -72,11 +73,11 @@ The bridge is optional: if the port is busy the node says so and keeps running.
 
 ## The message
 
-One JSON datagram per node per second, broadcast on 5005. `Plan.md` is the
-contract; this is what it looks like:
+One JSON datagram per node per second, broadcast on 5005. This is the
+contract between the nodes, the sensor app and the dashboard:
 
 ```json
-{"id": 2, "anomaly": 0.12, "dist": 3, "via": 1, "alert": false, "escape_to": 3,
+{"id": 2, "boot": "7354", "anomaly": 0.12, "dist": 3, "via": 1, "alert": false, "escape_to": 3,
  "mu": 22.4, "sigma": 1.1, "n": 120, "temperature": 23.8, "humidity": 46.2,
  "simulated": false, "bytes_sent": 84, "bytes_if_raw_data": 960,
  "ts": 1731574800.2}
@@ -87,7 +88,10 @@ one to each other for ever, and the dashboard draws it as the arrow pointing at
 where the alarm came from. `mu`, `sigma` and `n` are only in one heartbeat
 every `PARAM_EVERY`: whoever reads them keeps the last value seen.
 `simulated: true` means the degrees were derived from the fake anomaly and must
-be labelled as such, never shown as a measurement.
+be labelled as such, never shown as a measurement. `boot` is a token unique to
+the running process: a node that hears its own id with another token says so,
+because two boards share an id. Whoever reads the messages ignores fields it
+does not know.
 
 ## Settings
 
@@ -109,6 +113,7 @@ All of them are environment variables, all have working defaults.
 | `HEARTBEAT` | 1 | seconds between messages |
 | `PARAM_EVERY` | 15 | seconds between model merges, and between parameter sends |
 | `SENSOR_PORT` / `SENSOR_TTL` | 5006 / 5 | the bridge, and when a reading goes stale |
+| `BCAST_REFRESH` | 10 | seconds between re-reads of the network interfaces (a board that changes network follows it) |
 
 ## The other three programs
 

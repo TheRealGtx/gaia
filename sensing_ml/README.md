@@ -9,8 +9,9 @@ and scores anomalies 0-1. Neighbours share only `mu`, `sigma`, `n`.
 from model import anomaly_score, get_params, merge_params, bytes_report
 
 state["anomaly"] = anomaly_score({"temp": 23.1, "hum": 41.0})
-params = get_params()            # {"mu": 22.4, "sigma": 1.1, "n": 300}
-merge_params([p1, p2])           # neighbours' params, every 10-20 s
+params = get_params(share=True) # {"mu": 22.4, "sigma": 1.1, "n": 300}; share=True only
+                                 # when they go on the air, so bytes_sent counts what is sent
+merge_params([p1, p2])           # neighbours' params, every 15 s
 bytes_report()                   # {"bytes_sent": ..., "bytes_if_raw_data": ...}  -> Pietro
 ```
 

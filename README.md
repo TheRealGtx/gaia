@@ -1,6 +1,8 @@
 # gaia
 A swarm of Arduino UNO Q nodes that detect forest fires with on-device AI, learn together without sharing data online, and guide people to safety with no cloud and no internet.
 
+**To run it:** [START.md](START.md), from powering the boards to the demo.
+
 ## The problem
 Wildfires are growing around the world, and the early minutes decide everything. Today's early-warning systems depend on cloud services, stable connectivity and centralized platforms, which are the things that fail during an emergency. They also tend to send raw sensor data to servers we don't control.
 
@@ -16,7 +18,7 @@ Each UNO Q reads amModulino Thermo and runs a small anomaly-detection model on t
 We use Gemma 3 1B on the UNO Q as the "explainer" of the system. It never decides alone: it receives the aggregated state of the field (which nodes are in alert, distances, trend) and produces a short report and a suggested action, for example "Fire risk rising in the north cluster, nodes 2 and 3 agree, the south exit is the safest route". Reports can be read by non-technical people. No data leaves the local network.
 
 **3. Federated learning between neighbours**
-Different places have different microclimates (clearing, undergrowth, lakeside), so a single global model can give false alarms. Nearby nodes exchange model parameters, never raw data, and average them with a proximity-based strategy. A new node with no history becomes useful after a few exchanges To save energy and bandwidth we send only the most important values.
+Different places have different microclimates (clearing, undergrowth, lakeside), so a single global model can give false alarms. Nearby nodes exchange model parameters, never raw data, and average them: each node merges only with its neighbours. A new node with no history becomes useful after a few exchanges. The model is three numbers (mean, spread, sample count), about 30 bytes sent every 15 seconds: against a reading every second, that is about 95% less traffic, and the readings themselves never leave the node. With a larger model the next step would be to send only the parameters that changed; with three numbers there is nothing left to cut.
 
 **4. Aggregate computing for collective behaviour**
 The network coordinates through field-based, neighbour-to-neighbour interaction, in the spirit of aggregate programming:
@@ -75,8 +77,10 @@ how we rehearse a node burning out without setting anything on fire.
 | --- | --- |
 | `aggregate/` | the nodes: gradient, consensus, self-healing, escape direction. Its [README](aggregate/README.md) has the contract and every setting |
 | `sensing_ml/` | the per-node anomaly model and the federated averaging |
-| `app_lab/` | the Arduino App Lab app: Modulino Thermo and the Pixels |
-| `dashboard/` | the passive observer: a local gateway and a 3D view of the field |
+| `app_lab/` | the sketch on the microcontroller and the sensor app: Modulino Thermo, LEDs and LED matrix over the Arduino Bridge |
+| `gemma/` | Gemma 3 1B on the boards, and the script that turns the field into a sentence |
+| `network/` | switching the boards between a hotspot and GaiaMesh, an ad-hoc network with no access point |
+| `dashboard/` | the passive observer: a local gateway, the Live field graph and a 3D view of the field |
 
 Three more programs live in `aggregate/`: `listen.py` prints every packet on the
 network and sends nothing, `netcheck.py` says why nodes cannot hear each other,

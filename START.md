@@ -103,9 +103,29 @@ Three circles, `3/3 on the air`, ALL CLEAR.
 
 ## 4. AI: Gemma situation report
 
-<!-- To be filled in. -->
+Gemma 3 1B runs on the boards through Ollama (to install it on a board:
+`gemma/README.md`). `gemma/report.py` runs **on the laptop**, next to the
+gateway: started on a board it fails with `Connection refused`. A third
+terminal, from the repository folder, after the gateway.
 
+Windows (PowerShell):
 
+```powershell
+$env:OLLAMA = "http://192.168.137.182:11434,http://192.168.137.180:11434,http://192.168.137.25:11434"
+dashboard\.venv\Scripts\python.exe gemma\report.py
+```
+
+Linux or macOS:
+
+```bash
+OLLAMA=http://192.168.137.182:11434,http://192.168.137.180:11434,http://192.168.137.25:11434 dashboard/.venv/bin/python gemma/report.py
+```
+
+It logs `Gemma ready at ...` for each board. The template sentence reaches the
+dashboard at once; Gemma's replaces it about 20-25 s after the field changes.
+End boards first in the list, the middle one last: the board writing a
+sentence works hard for about 24 s, and a middle board falling behind would
+split the line. If no board answers, the template stays.
 
 ## 5. The demo
 
@@ -133,9 +153,10 @@ answer from its node.
 | `ignored:{N: ...}` in a node's log | that node hears board N but N is not in its `NEIGHBORS` (fine for 1 and 3 in a line) |
 | `WARNING: another node is using NODE_ID` | two boards with the same id: fix `/etc/gaia/board.env`, then restart both services |
 | Matrix dark or very dim | the sketch on that board predates the brightness fix: flash it again |
-| A board stuck, or disk full | `df -h /` on it (board 3 filled up with Ollama's CUDA libraries once) |
+| A board stuck, or disk full | `df -h /` on it (board 3 filled up with Ollama's CUDA libraries once: `gemma/README.md`) |
+| Only `Template:` sentences, never `Gemma:` | `curl http://<board>:11434/api/tags` from the laptop; no answer = `sudo systemctl restart ollama` on that board |
 
 ## 7. Shutting down
 
-Ctrl-C in the two dashboard terminals. Boards: unplug them; next time they
+Ctrl-C in `report.py` and in the two dashboard terminals. Boards: unplug them; next time they
 start by themselves.

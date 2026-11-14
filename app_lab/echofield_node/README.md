@@ -1,137 +1,87 @@
-# Gaia node, App Lab app (Chuqi)
+# Gaia sensor app (Chuqi)
 
-> **How the boards run now (demo setup):** the sketch is flashed with the
-> Arduino IDE and `main.py` + `aggregate/node.py` run as systemd services
-> (`install_service.sh`, see "Start at power-on" below). App Lab is no longer
-> used; its section is kept as a fallback. Calibration with the services:
-> `sudo systemctl stop gaia-sensor`, `rm readings.csv`, start it, record, stop,
-> rename to `normal.csv` / `hazard.csv` (the file is appended to, never reset).
-
-One App Lab app per board, the same files on every board. The MCU sketch owns
-**all** hardware (Thermo + Pixels), because a board runs only one sketch.
+On each board the sketch on the microcontroller owns all the hardware (the
+Modulino Thermo, the Pixels, the LED matrix). `python/main.py` runs on the
+board's Linux, reads it over the Arduino Bridge, and talks to
+`aggregate/node.py` on the same board:
 
 ```
-MCU sketch  <--Bridge-->  python/main.py (App Lab container)  <--UDP 5006-->  aggregate/node.py (board host)
+MCU sketch  <--Bridge-->  python/main.py  <--UDP 127.0.0.1:5006-->  aggregate/node.py
 ```
 
-| Bridge name | Side | Returns |
+| Bridge call | Direction | What |
 | --- | --- | --- |
-| `read_temp()` | MCU -> Python | float °C |
-| `read_hum()` | MCU -> Python | float %RH |
-| `set_pixels(r,g,b)` | Python -> MCU | nothing |
+| `read_temp()` | MCU -> Python | float, °C |
+| `read_hum()` | MCU -> Python | float, % RH |
+| `set_pixels(r, g, b)` | Python -> MCU | colour of the RGB LEDs and Pixels |
+| `show_state(dist, dir)` | Python -> MCU | what the LED matrix draws |
 
-`main.py` is a sensor client: once a second it sends `{"temp", "hum"}` to
-`node.py` on the board's host OS and colours the LEDs from the answer
-(`dist` / `alert`). The node and the model do **not** run in this app: App Lab
-runs it in a container (172.18.0.2) whose broadcasts never reach the Wi-Fi.
+Once a second `main.py` sends `{"temp", "hum"}` to the node and gets back
+`{"id", "dist", "alert", "escape_to", "via", "anomaly"}`. The board's lights
+show what the network decided, never a local temperature threshold:
 
-## Per board
+- **LEDs**: red = this board is the hazard, amber = one hop away, green =
+  further, blue = no hazard known, dim white = the node is not answering.
+- **Matrix**: an arrow towards the way out (`escape_to`; an end board points
+  away from the neighbour the alarm came from). The hazard board shows its
+  arrow with a flashing border, and blinks entirely when it has no safer
+  neighbour. A quiet dot when no hazard is known, an X when the node is not
+  answering.
 
-1. App Lab app: `sketch/sketch.ino`, `python/main.py`, and the sketch library
-   `Arduino_Modulino`. Nothing else (no `node.py`, no `sensing_ml/`).
-2. Board host (ssh / adb shell), from the repo:
-   `NODE_ID=1 NEIGHBORS=2 python3 aggregate/node.py` (2 -> `1,3`, 3 -> `2`).
-3. Run the app. Its log shows `node N is answering`, then one line per second
-   with `temp`, `anom`, `dist`. The node's log shows
-   `sensor bridge: first reading from 172.18.0.2`.
+Boards stand in a line 1-2-3 from left to right, so "escape to a higher id"
+is an arrow to the right; `ARROW_FLIP=1` if the line is laid out the other way.
 
-LEDs: red = hazard here, amber = one hop, green = further, blue = no hazard
-known, dim white = `node.py` is not answering.
+## Setting up a board (once)
+
+Full steps, in order, are in `START.md` §0. In short:
+
+1. **Flash the sketch** from the Arduino IDE **over USB** (over the network
+   the IDE uses SSH and fails on the password). Board package *Arduino UNO
+   Q*; libraries `Arduino_RouterBridge` and `Arduino_Modulino` with all its
+   dependencies (*Install all*).
+2. **Give the board's Python the Bridge**: `./setup_bridge.sh`. The board has
+   no `arduino.app_utils` and no `pip`; the script copies the library out of
+   App Lab's docker image into `~/gaia/.bridge`, checks the import, and checks
+   the `arduino-router` group, which the Bridge socket needs:
+   `sudo usermod -aG arduino-router arduino`, then log in again.
+3. **Install the services**: `sudo ./install_service.sh 1 2` (board 2:
+   `2 1,3`, board 3: `3 2`). `gaia-node` and `gaia-sensor` then start at
+   power-on, restart by themselves, and have priority over anything else on
+   the board (Gemma included).
+
+## Running
+
+```bash
+journalctl -u gaia-node -f -o cat      # the node's status line
+journalctl -u gaia-sensor -f -o cat    # readings, and the node's answer
+sudo systemctl restart gaia-node gaia-sensor
+```
+
+`main.py` prints where it expects the node at start:
+`node.py expected at 127.0.0.1:5006 (board OS, e.g. over SSH)`. If a reading
+fails it says why (`read_temp not available` = flash the sketch again), and a
+failing matrix call is logged once.
+
+`./run_board.sh 2 1,3` starts both by hand instead, for debugging; it refuses
+while the services run (`sudo ./install_service.sh --remove` to go back).
 
 ## Calibration
 
-Every reading goes to `readings.csv` in the app folder (`RECORD=<name>` to
-change it). Record ~5 min at room temperature (`normal.csv`) and ~1 min with
-the heat source at demo distance (`hazard.csv`), then on a laptop:
+Every reading goes to `readings.csv` in this folder (`RECORD=<name>` to change
+it); the file is appended to, never reset. With the services:
+`sudo systemctl stop gaia-sensor`, `rm readings.csv`, start it, record, stop,
+and rename the file. Record ~5 min at room temperature (`normal.csv`) and
+~1 min with the heat source at demo distance (`hazard.csv`), then on a laptop:
 `python sensing_ml/calibrate.py normal.csv hazard.csv`.
 
-`GAIA_MODE=test` is a wiring check without a node (LEDs red above 30 °C). Never
-use it in the demo.
+`GAIA_MODE=test` is a wiring check without a node (LEDs red above 30 °C). It
+is a fixed threshold, exactly what the project says it does not do: never use
+it in the demo.
 
-## Without App Lab: flash with the Arduino IDE, run over SSH
+## Inside App Lab instead
 
-What the mentors suggested, and what gets the Python out of the App Lab
-container, whose network cannot reach the Wi-Fi. On the board's own OS the
-node and this app run side by side and talk over 127.0.0.1.
-
-**1. Flash the sketch** with the Arduino IDE: install the Arduino UNO Q board
-package, then the `Arduino_RouterBridge`, `Modulino` and `Arduino_LED_Matrix`
-libraries from the Library Manager, open `sketch/sketch.ino` and upload. The
-Bridge calls are the ones in Arduino's own example (`Bridge.begin()`, then
-`Bridge.provide("name", fn)` in `setup()`), so `[B1]` in the sketch is settled.
-
-**2. Put the board on the hotspot and SSH into it.** Get the repository there
-(`git clone` or `git pull`): the run script needs `aggregate/` next to
-`app_lab/`, because the node and the model live there.
-
-**3. Give the board's Python the Bridge**, once per board:
-
-```bash
-./setup_bridge.sh
-```
-
-The board's `python3` has no `arduino.app_utils` and no `pip`: the library
-ships inside App Lab's docker image. The Bridge itself does not: arduino-router
-runs on the board and listens on `/run/arduino-router.sock`, the container only
-mounts it. So the script copies the image's `site-packages` into `.bridge/`
-(the image's Python is 3.13, the board's too), checks the import works, and
-checks your user may open the socket. If it says you are not in the
-`arduino-router` group, run the `usermod` line it prints and log in again,
-otherwise every Bridge call fails with "permission denied". `main.py` points
-here if you skip this step.
-
-**4. Start the board**, one line per board, from `app_lab/echofield_node/`:
-
-```bash
-./run_board.sh 1 2        # board 1, neighbour 2
-./run_board.sh 2 1,3      # board 2, neighbours 1 and 3
-./run_board.sh 3 2        # board 3, neighbour 2
-```
-
-The script starts `node.py` in the background, checks it came up,
-then runs `main.py` in the foreground; Ctrl-C stops both. The node's own status
-lines go to `/tmp/gaia-node-<id>.log`: watch them from a second SSH session with
-`tail -f`.
-
-**5. Check the two lines that matter.** `main.py` prints
-`node.py expected at 127.0.0.1:5006 (board OS, e.g. over SSH)`: if it says
-`App Lab container` instead, you are not where you think you are. The node log
-starts with `my address 10.x.x.x, sending to ...`: that address must be the
-Wi-Fi one. If the boards still cannot hear each other, run
-`python3 aggregate/netcheck.py` on all of them at once.
-
-`main.py` decides by itself which of the two worlds it is in (the App Lab
-container or the board's OS), so the same file works in both. `NODE_HOST`
-overrides the guess if it is ever wrong.
-
-## Start at power-on, and come back by itself
-
-Started by hand, a board stops when the SSH session closes and stays off after a
-power cycle, so unplugging one to show self-healing means it never rejoins.
-Once it works by hand, make it a service, once per board:
-
-```bash
-sudo ./install_service.sh 1 2        # board 1
-sudo ./install_service.sh 2 1,3      # board 2
-sudo ./install_service.sh 3 2        # board 3
-```
-
-That installs two services, `gaia-node` (the network) and `gaia-sensor` (the
-Modulino and the LEDs). They start at power-on, restart by themselves within
-seconds if they die, and need no SSH session. They are separate on purpose: a
-Bridge hiccup can restart the LEDs, never the mesh. The node also re-reads its
-network interfaces every 10 s, so a board that boots before its Wi-Fi is ready,
-or rejoins the hotspot with another address, finds it again; its log then says
-`network changed: now sending to ...`.
-
-```bash
-journalctl -u gaia-node -f                     # the node's status lines
-journalctl -u gaia-sensor -f                   # readings and LED state
-sudo systemctl restart gaia-node gaia-sensor   # after editing /etc/gaia/board.env
-sudo ./install_service.sh --remove             # back to run_board.sh
-```
-
-The test that matters: `sudo reboot` one board, or pull its power and plug it
-back. Within about a minute it is back in the field and in the Live field view,
-with nobody touching a keyboard. While the services run, `run_board.sh` refuses
-to start a second copy.
+`main.py` also runs as an App Lab app and notices it by itself. App Lab runs it
+in a container on a docker bridge (172.18.0.2) whose broadcasts never reach the
+Wi-Fi, so the node cannot run there: it runs on the board's OS and `main.py`
+reaches it at the container's gateway. `NODE_HOST` overrides the address. This
+is how the project started; the demo uses the setup above.

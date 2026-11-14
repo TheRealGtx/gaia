@@ -15,6 +15,10 @@ Saturday 14/11 at night, from the Windows session that built most of this.
   App Lab's docker image, copied by `setup_bridge.sh` into `~/gaia/.bridge`.
 - Real readings on all boards, Chuqi's model calibrated on Node3 (normal max
   0.13, a hair dryer is detected in about a second).
+- **Gemma 3 1B runs on all three boards** through Ollama (`gemma/README.md`);
+  `gemma/report.py` runs on the laptop next to the gateway and asks the first
+  board that answers. The models are already downloaded, which matters: on
+  GaiaMesh nothing has internet.
 - **Network today**: the Windows hotspot of this laptop, "MSI 9439",
   192.168.137.x. Board 1 = .180, board 2 = .25, board 3 = .182. Phone hotspots
   isolate their clients, so they do not work.
@@ -82,7 +86,12 @@ cd ~/gaia/dashboard && .venv/bin/python -m uvicorn gateway.main:app --host 0.0.0
 cd ~/gaia/dashboard && npm run dev
 ```
 
-Open http://localhost:3000, page **Live field**, switch to Live.
+Open http://localhost:3000, page **Live field**, switch to Live. Then Gemma,
+in a third terminal (the boards' new addresses, end boards first):
+
+```bash
+cd ~/gaia && OLLAMA=http://10.77.0.3:11434,http://10.77.0.1:11434,http://10.77.0.2:11434 dashboard/.venv/bin/python gemma/report.py
+```
 
 **If anything fails in phase 3, do nothing.** Within 30 minutes every board is
 back on the hotspot; reboot into Windows and you are where you started.
@@ -124,10 +133,10 @@ profile it starts with.
 
 ## Where to read more
 
+`START.md` (bringing everything up, the demo, troubleshooting),
 `aggregate/README.md` (the nodes, every setting, the three ports),
 `app_lab/echofield_node/README.md` (flashing, the Bridge, the services),
-`2026-11-14-handoff-from-giuliano.md` (who still owes what), `Plan.md`
-(contract and schedule). Tools: `aggregate/sim.py` (a whole field of real
+`gemma/README.md` (Gemma on the boards). Tools: `aggregate/sim.py` (a whole field of real
 nodes on one laptop), `aggregate/netcheck.py` (why nodes cannot hear each
 other), `aggregate/check_dashboard.py` (does the dashboard accept what the
 nodes send).
