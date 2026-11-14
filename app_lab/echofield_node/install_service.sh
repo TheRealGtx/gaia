@@ -70,6 +70,12 @@ ExecStart=$PY $ROOT/aggregate/node.py
 StandardInput=null
 Restart=always
 RestartSec=2
+# The mesh comes first. If Gemma (Ollama) or anything heavy runs on this board,
+# the heartbeat must not wait for it: a neighbour silent for 4 s is dropped,
+# and that would happen during a fire, the moment Gemma is asked to talk.
+Nice=-5
+CPUWeight=1000
+OOMScoreAdjust=-500
 
 [Install]
 WantedBy=multi-user.target"
@@ -92,6 +98,10 @@ WorkingDirectory=$HERE
 ExecStart=$PY $HERE/python/main.py
 Restart=always
 RestartSec=3
+# Second only to the node: without readings the anomaly stays fake.
+Nice=-3
+CPUWeight=500
+OOMScoreAdjust=-400
 
 [Install]
 WantedBy=multi-user.target"
