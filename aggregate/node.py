@@ -251,9 +251,13 @@ def iface_networks():
     another host, so a packet sent there reaches nobody.
     """
     try:
-        out = subprocess.run(["ip", "-o", "-4", "addr"], capture_output=True,
-                             text=True, timeout=2).stdout
-    except (OSError, ValueError, subprocess.SubprocessError):
+        # Not capture_output=/text=: those are Python 3.7+, and what the board
+        # ships is not something to discover at 20:00 through a traceback at
+        # import time, which would kill the node before it says anything.
+        out = subprocess.run(["ip", "-o", "-4", "addr"], stdout=subprocess.PIPE,
+                             stderr=subprocess.DEVNULL, universal_newlines=True,
+                             timeout=2).stdout
+    except Exception:                               # no `ip`, old Python, ...
         return []
     found = []
     for line in out.splitlines():
