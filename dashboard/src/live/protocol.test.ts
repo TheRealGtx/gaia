@@ -11,6 +11,7 @@ describe("gateway protocol", () => {
         temperature: 47, humidity: 22.5, anomalyScore: 1, gradientDistance: 0,
         via: null, escapeTo: "A-02", mu: 20, sigma: 0, n: 7, networkAlert: false,
         simulated: true, bytesSent: 204, bytesIfRawData: 451, sourceTimestamp: 1794648860.83,
+        modelUpdatedAt: "2026-11-14T09:59:48.000Z",
         status: "critical", connectivity: "connected", neighbourIds: ["A-02"],
         lastUpdate: "2026-11-14T10:00:00.000Z",
       },
@@ -20,8 +21,29 @@ describe("gateway protocol", () => {
       assert.deepEqual(event.sensor.live, {
         gradientDistance: 0, via: null, escapeTo: "A-02", mu: 20, sigma: 0, n: 7,
         networkAlert: false, simulated: true, bytesSent: 204, bytesIfRawData: 451,
-        sourceTimestamp: 1794648860.83,
+        sourceTimestamp: 1794648860.83, modelUpdatedAt: "2026-11-14T09:59:48.000Z",
       });
+    }
+  });
+
+  it("rejects a partial model update while preserving the rest of the reading", () => {
+    const event = normalizeGatewayMessage({
+      type: "sensor-reading", environmentId: "building-a",
+      sensor: {
+        id: "A-01", environmentId: "building-a", name: "Reception", position: [-12, 1.15, 7],
+        temperature: 25, humidity: 44, anomalyScore: 0.1, gradientDistance: 2,
+        mu: 99, status: "normal", connectivity: "connected", neighbourIds: ["A-02"],
+        lastUpdate: "2026-11-14T10:00:01.000Z",
+      },
+    });
+
+    assert.equal(event?.type, "sensor-reading");
+    if (event?.type === "sensor-reading") {
+      assert.equal(event.sensor.reading.temperature, 25);
+      assert.deepEqual(
+        { mu: event.sensor.live?.mu, sigma: event.sensor.live?.sigma, n: event.sensor.live?.n },
+        { mu: null, sigma: null, n: null },
+      );
     }
   });
 

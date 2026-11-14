@@ -65,12 +65,60 @@ class GatewayStoreTests(unittest.TestCase):
 
     def test_cadenced_model_values_remain_sticky_when_absent(self):
         store = GatewayStore(manifest=MANIFEST)
-        store.update_udp_packet(packet(mu=22.0, sigma=1.0, n=24, bytes_sent=100, bytes_if_raw_data=1000))
-        sensor = store.update_udp_packet(packet(mu=None, sigma=None, n=None, bytes_sent=None, bytes_if_raw_data=None, temperature=24.0))
+        first = datetime(2026, 11, 14, 10, 0, 0, tzinfo=timezone.utc)
+        store.update_udp_packet(packet(mu=22.0, sigma=1.0, n=24, bytes_sent=100, bytes_if_raw_data=1000), first)
+        sensor = store.update_udp_packet(
+            packet(mu=None, sigma=None, n=None, bytes_sent=None, bytes_if_raw_data=None, temperature=24.0),
+            first + timedelta(seconds=60),
+        )
         self.assertEqual(sensor["mu"], 22.0)
         self.assertEqual(sensor["n"], 24)
+        self.assertEqual(sensor["modelUpdatedAt"], "2026-11-14T10:00:00Z")
         self.assertEqual(sensor["bytesSent"], 100)
         self.assertEqual(sensor["temperature"], 24.0)
+
+    def test_first_packet_without_parameters_has_no_fake_model_or_update_time(self):
+        store = GatewayStore(manifest=MANIFEST)
+        sensor = store.update_udp_packet(packet(mu=None, sigma=None, n=None))
+
+        self.assertIsNone(sensor["mu"])
+        self.assertIsNone(sensor["sigma"])
+        self.assertIsNone(sensor["n"])
+        self.assertIsNone(sensor["modelUpdatedAt"])
+
+    def test_partial_parameter_packet_keeps_the_previous_complete_model(self):
+        import json
+
+        store = GatewayStore(manifest=MANIFEST)
+        first = datetime(2026, 11, 14, 10, 0, 0, tzinfo=timezone.utc)
+        store.update_udp_packet(packet(mu=22.0, sigma=1.0, n=24), first)
+        partial = {
+            "id": 1, "anomaly": 0.1, "dist": 2, "alert": False,
+            "temperature": 25.0, "humidity": 44.0, "ts": 101.0, "mu": 99.0,
+        }
+        sensor = store.update_udp_packet(
+            parse_udp_packet(json.dumps(partial).encode()),
+            first + timedelta(seconds=1),
+        )
+
+        self.assertEqual((sensor["mu"], sensor["sigma"], sensor["n"]), (22.0, 1.0, 24))
+        self.assertEqual(sensor["modelUpdatedAt"], "2026-11-14T10:00:00Z")
+        self.assertEqual(sensor["temperature"], 25.0)
+
+    def test_reboot_accepts_lower_model_count_and_reset_counters(self):
+        store = GatewayStore(manifest=MANIFEST)
+        first = datetime(2026, 11, 14, 10, 0, 0, tzinfo=timezone.utc)
+        store.update_udp_packet(packet(n=120, bytes_sent=500, bytes_if_raw_data=5000, ts=999.0), first)
+        sensor = store.update_udp_packet(
+            packet(n=1, bytes_sent=0, bytes_if_raw_data=41, ts=1.0, temperature=20.0),
+            first + timedelta(seconds=1),
+        )
+
+        self.assertEqual(sensor["n"], 1)
+        self.assertEqual(sensor["bytesSent"], 0)
+        self.assertEqual(sensor["bytesIfRawData"], 41)
+        self.assertEqual(sensor["temperature"], 20.0)
+        self.assertEqual(sensor["sourceTimestamp"], 1.0)
 
     def test_udp_node_becomes_offline_after_four_seconds_and_keeps_last_reading(self):
         store = GatewayStore(manifest=MANIFEST, offline_after_seconds=4)

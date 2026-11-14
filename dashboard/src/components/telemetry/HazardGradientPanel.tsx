@@ -1,17 +1,21 @@
 "use client";
 
 import { Activity, Flame } from "lucide-react";
+import dynamic from "next/dynamic";
 import {
   deriveHazardGradient,
   deriveLiveHazardGradient,
-  gradientFieldColor,
-  liveGradientColor,
-  layoutGradientSensors,
   selectSimulatedHazardSource,
 } from "../../domain/hazardGradient";
 import { useGaiaActions, useGaiaState } from "../../state/hooks";
 import { selectActiveEnvironment } from "../../state/selectors";
 import { StatusBadge } from "../ui";
+import { createHazardGradientSceneModel } from "./hazardGradientSceneModel";
+
+const HazardGradientScene3D = dynamic(() => import("./HazardGradientScene3D").then((module) => module.HazardGradientScene3D), {
+  ssr: false,
+  loading: () => <div className="gradient-map__loading">Loading 3D sensor mesh…</div>,
+});
 
 export function HazardGradientPanel() {
   const state = useGaiaState();
@@ -31,16 +35,7 @@ export function HazardGradientPanel() {
       connections: environment.topology.connections,
     });
   const sourceId = model.sourceId;
-  const layout = layoutGradientSensors(environment.sensors.map((sensor) => ({
-    id: sensor.id,
-    position: sensor.position,
-    floorId: sensor.floorId,
-  })));
-  const plottedNodes = model.nodes.map((node) => ({ ...node, ...layout[node.sensorId] }));
-  const nodeById = new Map(plottedNodes.map((node) => [node.sensorId, node]));
-  const nodeCount = plottedNodes.length;
-  const nodeRadius = nodeCount > 70 ? 2.25 : nodeCount > 42 ? 2.75 : nodeCount > 20 ? 3.35 : 4.25;
-  const levelFontSize = Math.max(1.65, Math.min(2.7, nodeRadius * .72));
+  const scene = createHazardGradientSceneModel(environment.sensors, model, state.selectedSensorId);
 
   return (
     <section className="gradient-panel" aria-label="Mesh hazard gradient">
@@ -49,31 +44,35 @@ export function HazardGradientPanel() {
         <span><strong>Hazard gradient</strong><small>Neighbour hop distance</small></span>
         <StatusBadge status={sourceId ? "critical" : "normal"} dot={false}>{sourceId ? "Active" : "Standby"}</StatusBadge>
       </header>
-      <div className="gradient-map">
-        <svg viewBox="0 0 100 100" role="img" aria-label={`Mesh gradient from ${sourceId}`}>
-          {model.links.map((link) => {
-            const source = nodeById.get(link.sourceId);
-            const target = nodeById.get(link.targetId);
-            const highlighted = link.sourceId === state.selectedSensorId || link.targetId === state.selectedSensorId;
-            return source && target ? <line className={highlighted ? "gradient-link--highlighted" : undefined} key={`${link.sourceId}-${link.targetId}`} x1={source.x} y1={source.y} x2={target.x} y2={target.y} /> : null;
+      <p id="hazard-gradient-description" className="sr-only">
+        Interactive 3D sensor mesh. Drag to rotate and use the wheel or pinch gesture to zoom. Only sensor points and their active connections are shown.
+      </p>
+      <div className="gradient-map" aria-describedby="hazard-gradient-description">
+        <HazardGradientScene3D
+          key={environment.definition.id}
+          scene={scene}
+          mode={state.mode}
+          maxLevel={model.maxLevel}
+          sourceId={sourceId}
+          onSelectSensor={(sensorId) => dispatch({ type: "select-sensor", sensorId })}
+        />
+        <div className="gradient-map__controls" role="group" aria-label="Select a sensor in the 3D hazard gradient">
+          {scene.nodes.map((node) => {
+            const stateLabel = node.offline ? "offline" : node.level === null ? "unreachable" : `gradient level ${node.level}`;
+            return (
+              <button
+                key={node.sensorId}
+                type="button"
+                className="gradient-map__sensor-control"
+                aria-label={`${node.sensorId}, ${stateLabel}`}
+                aria-pressed={node.selected}
+                onClick={() => dispatch({ type: "select-sensor", sensorId: node.sensorId })}
+              >
+                {node.sensorId} · {stateLabel}
+              </button>
+            );
           })}
-          {plottedNodes.map((node) => (
-            <g
-              key={node.sensorId}
-              className={`gradient-node ${node.sensorId === state.selectedSensorId ? "gradient-node--selected" : ""}`}
-              role="button"
-              tabIndex={0}
-              aria-label={`${node.sensorId}, ${node.level === null ? node.offline ? "offline" : "unreachable" : `gradient level ${node.level}`}`}
-              onClick={() => dispatch({ type: "select-sensor", sensorId: node.sensorId })}
-              onKeyDown={(event) => { if (event.key === "Enter" || event.key === " ") dispatch({ type: "select-sensor", sensorId: node.sensorId }); }}
-            >
-              <circle cx={node.x} cy={node.y} r={nodeRadius} fill={state.mode === "live" ? liveGradientColor(node.level, node.offline, Boolean(sourceId)) : gradientFieldColor(node.level, model.maxLevel, node.offline, Boolean(sourceId))} />
-              {node.level === 0 ? <circle className="gradient-node__source" cx={node.x + nodeRadius * .78} cy={node.y - nodeRadius * .78} r={Math.max(.85, nodeRadius * .32)} /> : null}
-              <text x={node.x} y={node.y + levelFontSize * .34} style={{ fontSize: `${levelFontSize}px` }}>{node.level === null ? "—" : node.level}</text>
-              <title>{node.sensorId}</title>
-            </g>
-          ))}
-        </svg>
+        </div>
       </div>
       <footer className="gradient-panel__footer">
         <span><Flame size={12} /> {sourceId ? "0 source" : "No active source"}</span>

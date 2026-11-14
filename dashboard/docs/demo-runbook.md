@@ -33,7 +33,7 @@ The physical manifest is `gateway/node_manifest.json`: node `1` → `A-01`, node
 
 5. Open `http://localhost:3000`, choose **Live**, and keep **Building A** selected.
 
-For laptop simulation, use the real-node launcher owned by `aggregate/sim.py` when it lands; do not add a second hand-written UDP protocol sender under `dashboard/`.
+For a bounded laptop-only rehearsal, run `python3 demo/fake_nodes.py --scenario nominal --count 30`. It follows the real 15-heartbeat parameter cadence. Stop it before starting Arduino broadcasts so fake IDs do not compete with physical IDs 1–3.
 
 ## What the operator must see
 
@@ -44,6 +44,7 @@ For laptop simulation, use the real-node launcher owned by `aggregate/sim.py` wh
 - `simulated: true` is labeled **Simulated input · not measured**.
 - Below `n = 20`, the model reads **learning (n/20)** instead of showing `mu` as a learned temperature.
 - Missing counters read **Awaiting counters**. Zero counters remain a real zero.
+- Present Green AI as: **sharing what each node learned costs less than shipping its readings away to train a central model**. Do not claim that total network traffic fell by the displayed percentage; dashboard readings remain local heartbeat telemetry.
 - The exact claim remains visible: `Dashboard is read-only: the network works without it.`
 
 ## Three-minute failure rehearsal

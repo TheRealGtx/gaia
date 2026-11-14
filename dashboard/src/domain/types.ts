@@ -21,6 +21,7 @@ export interface LiveNodeMetrics {
   mu: number | null;
   sigma: number | null;
   n: number | null;
+  modelUpdatedAt: string | null;
   networkAlert: boolean | null;
   simulated: boolean | null;
   bytesSent: number | null;

@@ -32,7 +32,7 @@ export function OperationalCards() {
       </Card>
       <Card className="operation-card communication-card">
         <header><span className="operation-icon operation-icon--green"><Leaf size={15} /></span><h3>Green AI</h3><span className="ai-source">Cumulative</span></header>
-        {savings ? <><div className="communication-saving"><strong>{savings.reductionPercent}%</strong><span>less than streaming raw readings</span></div><dl><div><dt>Sent</dt><dd>{savings.bytesSent} B</dd></div><div><dt>Raw equivalent</dt><dd>{savings.bytesIfRawData} B</dd></div><div><dt>Avoided</dt><dd>{savings.bytesAvoided} B</dd></div></dl><footer>{savings.reportingNodes}/{savings.totalNodes} nodes reporting counters</footer></> : <><div className="communication-saving communication-saving--empty"><strong>Awaiting counters</strong><span>Absent values are not treated as zero</span></div><footer>Live model counters only</footer></>}
+        {savings ? <><div className="communication-saving"><strong>{savings.reductionPercent}%</strong><span>less learning traffic than central training</span></div><dl><div><dt>Shared model</dt><dd>{savings.bytesSent} B</dd></div><div><dt>Raw training data</dt><dd>{savings.bytesIfRawData} B</dd></div><div><dt>Avoided</dt><dd>{savings.bytesAvoided} B</dd></div></dl><footer>{savings.reportingNodes}/{savings.totalNodes} nodes · model sharing vs raw readings</footer></> : <><div className="communication-saving communication-saving--empty"><strong>Awaiting counters</strong><span>Absent values are not treated as zero</span></div><footer>Live model counters only</footer></>}
       </Card>
     </div>
   );

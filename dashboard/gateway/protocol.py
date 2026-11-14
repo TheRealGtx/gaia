@@ -65,15 +65,23 @@ def _integer(value: Any, field: str, *, nullable: bool = False) -> int | None:
     return value
 
 
-def _optional_number(payload: dict[str, Any], field: str) -> float | None:
-    return _number(payload.get(field), field, nullable=True)
-
-
 def _optional_nonnegative_integer(payload: dict[str, Any], field: str) -> int | None:
     value = _integer(payload.get(field), field, nullable=True)
     if value is not None and value < 0:
         raise ValueError(f"{field} must be non-negative")
     return value
+
+
+def _optional_model_parameters(payload: dict[str, Any]) -> tuple[float | None, float | None, int | None]:
+    fields = ("mu", "sigma", "n")
+    if not all(field in payload for field in fields) or any(payload[field] is None for field in fields):
+        return None, None, None
+    mu = _number(payload["mu"], "mu")
+    sigma = _number(payload["sigma"], "sigma")
+    n = _integer(payload["n"], "n")
+    if n is None or n < 0:
+        raise ValueError("n must be non-negative")
+    return mu, sigma, n
 
 
 def parse_udp_packet(data: bytes) -> UdpNodePacket:
@@ -101,6 +109,7 @@ def parse_udp_packet(data: bytes) -> UdpNodePacket:
     if not isinstance(payload["alert"], bool) or (payload.get("simulated") is not None and not isinstance(payload.get("simulated"), bool)):
         raise ValueError("alert and simulated must be booleans")
 
+    mu, sigma, n = _optional_model_parameters(payload)
     return UdpNodePacket(
         node_id=node_id,
         anomaly=anomaly,
@@ -112,9 +121,9 @@ def parse_udp_packet(data: bytes) -> UdpNodePacket:
         humidity=_number(payload["humidity"], "humidity", nullable=True),
         simulated=payload.get("simulated"),
         ts=_number(payload["ts"], "ts") or 0.0,
-        mu=_optional_number(payload, "mu"),
-        sigma=_optional_number(payload, "sigma"),
-        n=_optional_nonnegative_integer(payload, "n"),
+        mu=mu,
+        sigma=sigma,
+        n=n,
         bytes_sent=_optional_nonnegative_integer(payload, "bytes_sent"),
         bytes_if_raw_data=_optional_nonnegative_integer(payload, "bytes_if_raw_data"),
     )

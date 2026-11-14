@@ -4,7 +4,6 @@ import {
   deriveHazardGradient,
   deriveLiveHazardGradient,
   gradientFieldColor,
-  layoutGradientSensors,
   selectSimulatedHazardSource,
 } from "./hazardGradient.ts";
 import { ENVIRONMENT_BY_ID } from "../config/environments.ts";
@@ -29,46 +28,6 @@ describe("hazard gradient", () => {
       { fire: 0, near: 1, far: 2, isolated: null, offline: null },
     );
     assert.equal(model.maxLevel, 2);
-  });
-
-  it("places the fire source at the upper-left of the layered map", () => {
-    const model = deriveHazardGradient({
-      sensorIds: ["fire", "near-a", "near-b", "far"],
-      sourceId: "fire",
-      offlineSensorIds: [],
-      connections: [
-        { sourceId: "fire", targetId: "near-a", active: true },
-        { sourceId: "fire", targetId: "near-b", active: true },
-        { sourceId: "near-a", targetId: "far", active: true },
-      ],
-    });
-
-    const source = model.nodes.find((node) => node.sensorId === "fire");
-    const reachable = model.nodes.filter((node) => node.level !== null && node.sensorId !== "fire");
-    assert.deepEqual([source?.x, source?.y], [8, 16]);
-    assert.equal(reachable.every((node) => node.x > (source?.x ?? 100)), true);
-  });
-
-  it("projects outdoor sensors into a padded spatial field", () => {
-    const layout = layoutGradientSensors([
-      { id: "north-west", position: [-30, 1, -20] },
-      { id: "north-east", position: [30, 1, -20] },
-      { id: "south-west", position: [-30, 1, 20] },
-      { id: "south-east", position: [30, 1, 20] },
-    ]);
-
-    assert.ok(layout["north-west"].x < layout["north-east"].x);
-    assert.ok(layout["north-west"].y < layout["south-west"].y);
-    assert.equal(Object.values(layout).every(({ x, y }) => x >= 7 && x <= 93 && y >= 7 && y <= 93), true);
-  });
-
-  it("separates building floors into ground-first horizontal bands", () => {
-    const layout = layoutGradientSensors([
-      { id: "ground", position: [0, 1, 0], floorId: "level-1" },
-      { id: "upper", position: [0, 6, 0], floorId: "level-2" },
-    ]);
-
-    assert.ok(layout.ground.y < layout.upper.y);
   });
 
   it("uses the ScaFi-inspired red-to-cyan field palette", () => {

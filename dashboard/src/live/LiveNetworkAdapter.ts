@@ -2,7 +2,7 @@ import { ENVIRONMENTS } from "../config/environments.ts";
 import type { DataAdapter, Unsubscribe } from "../domain/adapter.ts";
 import type { EnvironmentId, EnvironmentState, NetworkEvent } from "../domain/types.ts";
 import { createInitialEnvironmentState } from "../simulation/engine.ts";
-import { normalizeGatewayMessages } from "./protocol.ts";
+import { keepLastKnownModel, normalizeGatewayMessages } from "./protocol.ts";
 import { getFreshness } from "./freshness.ts";
 import { LIVE_SENSOR_IDS } from "./liveManifest.ts";
 
@@ -37,6 +37,8 @@ export function emptyLiveState(environmentId: EnvironmentId): EnvironmentState {
 
 export class LiveNetworkAdapter implements DataAdapter {
   readonly source = "live" as const;
+  private readonly url: string;
+  private readonly createSocket: WebSocketFactory;
   private socket: WebSocketLike | null = null;
   private listeners = new Set<(event: NetworkEvent) => void>();
   private reconnectAttempt = 0;
@@ -48,9 +50,12 @@ export class LiveNetworkAdapter implements DataAdapter {
   );
 
   constructor(
-    private readonly url: string,
-    private readonly createSocket: WebSocketFactory = (socketUrl) => new WebSocket(socketUrl) as unknown as WebSocketLike,
-  ) {}
+    url: string,
+    createSocket: WebSocketFactory = (socketUrl) => new WebSocket(socketUrl) as unknown as WebSocketLike,
+  ) {
+    this.url = url;
+    this.createSocket = createSocket;
+  }
 
   async connect(): Promise<void> {
     this.closedManually = false;
@@ -106,16 +111,22 @@ export class LiveNetworkAdapter implements DataAdapter {
   }
 
   private applyEvent(event: NetworkEvent): void {
+    let emittedEvent = event;
     if (event.type === "snapshot") this.states.set(event.environment.definition.id, event.environment);
     if ("environmentId" in event && event.environmentId) {
       const current = this.states.get(event.environmentId);
       if (current) {
         if (event.type === "sensor-reading") {
+          const sensor = keepLastKnownModel(
+            current.sensors.find((item) => item.id === event.sensor.id),
+            event.sensor,
+          );
           this.states.set(event.environmentId, {
             ...current,
-            sensors: current.sensors.map((sensor) => sensor.id === event.sensor.id ? event.sensor : sensor),
-            lastSync: event.sensor.reading.lastUpdate,
+            sensors: current.sensors.map((item) => item.id === sensor.id ? sensor : item),
+            lastSync: sensor.reading.lastUpdate,
           });
+          emittedEvent = { ...event, sensor };
         }
         if (event.type === "topology") this.states.set(event.environmentId, { ...current, topology: event.topology, lastSync: event.topology.lastUpdate });
         if (event.type === "alert") this.states.set(event.environmentId, { ...current, alerts: [...current.alerts.filter((alert) => alert.id !== event.alert.id), event.alert] });
@@ -123,7 +134,7 @@ export class LiveNetworkAdapter implements DataAdapter {
         if (event.type === "ai-summary") this.states.set(event.environmentId, { ...current, aiSummary: event.summary });
       }
     }
-    this.emit(event);
+    this.emit(emittedEvent);
   }
 
   private refreshFreshness(): void {

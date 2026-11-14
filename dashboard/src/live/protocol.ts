@@ -77,6 +77,10 @@ function normalizeSensor(value: unknown, id: EnvironmentId): SensorNode | null {
   const networkAlert = booleanOrNull(value.networkAlert);
   const gatewayStatus = status(value.status);
   const freshness: FreshnessState = gatewayStatus === "offline" ? "offline" : gatewayStatus === "stale" ? "stale" : "fresh";
+  const rawMu = numberOrNull(value.mu);
+  const rawSigma = numberOrNull(value.sigma);
+  const rawN = integerOrNull(value.n);
+  const hasCompleteModel = rawMu !== null && rawSigma !== null && rawN !== null && rawN >= 0;
 
   return {
     ...configured,
@@ -100,14 +104,35 @@ function normalizeSensor(value: unknown, id: EnvironmentId): SensorNode | null {
       gradientDistance,
       via: stringOrNull(value.via),
       escapeTo: stringOrNull(value.escapeTo),
-      mu: numberOrNull(value.mu),
-      sigma: numberOrNull(value.sigma),
-      n: integerOrNull(value.n),
+      mu: hasCompleteModel ? rawMu : null,
+      sigma: hasCompleteModel ? rawSigma : null,
+      n: hasCompleteModel ? rawN : null,
+      modelUpdatedAt: hasCompleteModel && typeof value.modelUpdatedAt === "string" ? value.modelUpdatedAt : null,
       networkAlert,
       simulated: booleanOrNull(value.simulated),
       bytesSent: integerOrNull(value.bytesSent),
       bytesIfRawData: integerOrNull(value.bytesIfRawData),
       sourceTimestamp: numberOrNull(value.sourceTimestamp),
+    },
+  };
+}
+
+export function keepLastKnownModel(previous: SensorNode | undefined, incoming: SensorNode): SensorNode {
+  if (!incoming.live || incoming.live.mu !== null && incoming.live.sigma !== null && incoming.live.n !== null) {
+    return incoming;
+  }
+  const previousLive = previous?.live;
+  if (!previousLive || previousLive.mu === null || previousLive.sigma === null || previousLive.n === null) {
+    return incoming;
+  }
+  return {
+    ...incoming,
+    live: {
+      ...incoming.live,
+      mu: previousLive.mu,
+      sigma: previousLive.sigma,
+      n: previousLive.n,
+      modelUpdatedAt: previousLive.modelUpdatedAt,
     },
   };
 }

@@ -9,8 +9,6 @@ export interface GradientConnectionInput {
 export interface HazardGradientNode {
   sensorId: string;
   level: number | null;
-  x: number;
-  y: number;
   offline: boolean;
 }
 
@@ -19,17 +17,6 @@ export interface HazardGradientModel {
   nodes: HazardGradientNode[];
   links: Array<{ sourceId: string; targetId: string }>;
   maxLevel: number;
-}
-
-export interface GradientLayoutSensor {
-  id: string;
-  position: readonly [number, number, number];
-  floorId?: string;
-}
-
-export interface GradientPoint {
-  x: number;
-  y: number;
 }
 
 export function selectSimulatedHazardSource(environment: EnvironmentState): string | null {
@@ -84,69 +71,6 @@ export function gradientFieldColor(level: number | null, maxLevel: number, offli
   return interpolateFieldColor(level / Math.max(1, maxLevel));
 }
 
-function normalized(value: number, minimum: number, maximum: number) {
-  if (maximum === minimum) return .5;
-  return (value - minimum) / (maximum - minimum);
-}
-
-function stableJitter(id: string, axis: number) {
-  let hash = 2166136261 + axis * 374761393;
-  for (let index = 0; index < id.length; index += 1) {
-    hash ^= id.charCodeAt(index);
-    hash = Math.imul(hash, 16777619);
-  }
-  return ((hash >>> 0) / 0xffffffff - .5) * 1.8;
-}
-
-export function layoutGradientSensors(sensors: GradientLayoutSensor[]): Record<string, GradientPoint> {
-  if (!sensors.length) return {};
-  const result: Record<string, GradientPoint> = {};
-  const xs = sensors.map((sensor) => sensor.position[0]);
-  const minX = Math.min(...xs);
-  const maxX = Math.max(...xs);
-  const floorGroups = new Map<string, GradientLayoutSensor[]>();
-  for (const sensor of sensors) {
-    const key = sensor.floorId ?? "__field__";
-    floorGroups.set(key, [...(floorGroups.get(key) ?? []), sensor]);
-  }
-
-  const hasFloors = floorGroups.size > 1 && sensors.every((sensor) => Boolean(sensor.floorId));
-  if (!hasFloors) {
-    const zs = sensors.map((sensor) => sensor.position[2]);
-    const minZ = Math.min(...zs);
-    const maxZ = Math.max(...zs);
-    for (const sensor of sensors) {
-      result[sensor.id] = {
-        x: clamp(7 + normalized(sensor.position[0], minX, maxX) * 86 + stableJitter(sensor.id, 0), 7, 93),
-        y: clamp(7 + normalized(sensor.position[2], minZ, maxZ) * 86 + stableJitter(sensor.id, 1), 7, 93),
-      };
-    }
-    return result;
-  }
-
-  const floors = [...floorGroups.entries()].sort(([, left], [, right]) => (
-    left.reduce((sum, sensor) => sum + sensor.position[1], 0) / left.length
-    - right.reduce((sum, sensor) => sum + sensor.position[1], 0) / right.length
-  ));
-  const bandHeight = 86 / floors.length;
-  floors.forEach(([, floorSensors], floorIndex) => {
-    const zs = floorSensors.map((sensor) => sensor.position[2]);
-    const minZ = Math.min(...zs);
-    const maxZ = Math.max(...zs);
-    for (const sensor of floorSensors) {
-      result[sensor.id] = {
-        x: clamp(7 + normalized(sensor.position[0], minX, maxX) * 86 + stableJitter(sensor.id, 0), 7, 93),
-        y: clamp(
-          7 + floorIndex * bandHeight + bandHeight * (.18 + normalized(sensor.position[2], minZ, maxZ) * .64) + stableJitter(sensor.id, 1) * .45,
-          7,
-          93,
-        ),
-      };
-    }
-  });
-  return result;
-}
-
 export function deriveHazardGradient({
   sensorIds,
   sourceId,
@@ -190,44 +114,11 @@ export function deriveHazardGradient({
   }
 
   const maxLevel = Math.max(0, ...levels.values());
-  const byLevel = new Map<number, string[]>();
-  const unreachable: string[] = [];
-  for (const sensorId of sensorIds) {
-    const level = levels.get(sensorId);
-    if (level === undefined) unreachable.push(sensorId);
-    else byLevel.set(level, [...(byLevel.get(level) ?? []), sensorId]);
-  }
-
-  const horizontalStep = 72 / Math.max(3, maxLevel + 1);
-  const positionForGroup = (items: string[], index: number) => (
-    items.length === 1 ? 50 : 20 + index * (62 / (items.length - 1))
-  );
-  const nodes: HazardGradientNode[] = [];
-  for (const sensorId of sensorIds) {
-    const level = levels.get(sensorId) ?? null;
-    if (level === 0) {
-      nodes.push({ sensorId, level, x: 8, y: 16, offline: false });
-      continue;
-    }
-    if (level !== null) {
-      const peers = byLevel.get(level) ?? [];
-      nodes.push({
-        sensorId,
-        level,
-        x: 8 + level * horizontalStep,
-        y: positionForGroup(peers, peers.indexOf(sensorId)),
-        offline: false,
-      });
-      continue;
-    }
-    nodes.push({
-      sensorId,
-      level: null,
-      x: 92,
-      y: positionForGroup(unreachable, unreachable.indexOf(sensorId)),
-      offline: offline.has(sensorId),
-    });
-  }
+  const nodes: HazardGradientNode[] = sensorIds.map((sensorId) => ({
+    sensorId,
+    level: levels.get(sensorId) ?? null,
+    offline: offline.has(sensorId),
+  }));
 
   return {
     sourceId: sourceId && levels.has(sourceId) ? sourceId : null,
@@ -243,11 +134,9 @@ export function deriveLiveHazardGradient(
 ): HazardGradientModel {
   const known = new Set(sensors.map((sensor) => sensor.sensorId));
   const activeLinks = connections.filter((connection) => connection.active && known.has(connection.sourceId) && known.has(connection.targetId));
-  const nodes = sensors.map((sensor, index) => ({
+  const nodes = sensors.map((sensor) => ({
     sensorId: sensor.sensorId,
     level: sensor.offline || sensor.distance === null || sensor.distance >= 99 ? null : sensor.distance,
-    x: sensors.length === 1 ? 50 : 12 + index * (76 / Math.max(1, sensors.length - 1)),
-    y: 50,
     offline: sensor.offline,
   }));
   const finiteLevels = nodes.flatMap((node) => node.level === null ? [] : [node.level]);

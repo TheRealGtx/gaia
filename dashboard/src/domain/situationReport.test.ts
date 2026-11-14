@@ -13,6 +13,7 @@ describe("deterministic situation report", () => {
       live: {
         gradientDistance: [0, 2, 99][index], via: index ? "A-01" : null,
         escapeTo: index === 0 ? "A-02" : null, mu: 22, sigma: 1, n: 20,
+        modelUpdatedAt: "2026-11-14T10:00:00Z",
         networkAlert: index === 0, simulated: false, bytesSent: 10,
         bytesIfRawData: 100, sourceTimestamp: 1,
       },
@@ -35,6 +36,7 @@ describe("deterministic situation report", () => {
       ...sensor,
       live: {
         gradientDistance: index, via: null, escapeTo: null, mu: 22, sigma: 1, n: 20,
+        modelUpdatedAt: "2026-11-14T10:00:00Z",
         networkAlert: true, simulated: false, bytesSent: 10, bytesIfRawData: 100, sourceTimestamp: 1,
       },
     }));

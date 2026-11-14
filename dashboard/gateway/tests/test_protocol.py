@@ -33,6 +33,15 @@ class UdpProtocolTests(unittest.TestCase):
         self.assertIsNone(packet.escape_to)
         self.assertIsNone(packet.simulated)
 
+    def test_partial_model_parameters_are_ignored_without_rejecting_the_packet(self):
+        payload = {key: value for key, value in CANONICAL.items() if key not in {"sigma", "n"}}
+        packet = parse_udp_packet(json.dumps(payload).encode())
+
+        self.assertIsNone(packet.mu)
+        self.assertIsNone(packet.sigma)
+        self.assertIsNone(packet.n)
+        self.assertEqual(packet.temperature, 47.0)
+
     def test_null_sensor_values_are_valid(self):
         packet = parse_udp_packet(json.dumps({**CANONICAL, "temperature": None, "humidity": None}).encode())
         self.assertIsNone(packet.temperature)

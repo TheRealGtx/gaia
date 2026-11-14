@@ -46,15 +46,18 @@ class GatewayStore:
         if manifest_node is None:
             return None
         received_at = received_at or datetime.now(timezone.utc)
+        received_at_iso = received_at.isoformat().replace("+00:00", "Z")
         status = "critical" if packet.alert or packet.dist == 0 else "warning" if packet.dist == 1 else "unknown" if packet.dist >= 99 else "normal"
         connectivity = "unknown" if packet.dist >= 99 else "connected"
         with self._lock:
             environment = self._environments.setdefault(manifest_node.environment_id, {"sensors": {}})
             previous = environment["sensors"].get(manifest_node.sensor_id, {})
+            has_model_update = packet.mu is not None and packet.sigma is not None and packet.n is not None
             sticky = {
-                "mu": packet.mu if packet.mu is not None else previous.get("mu"),
-                "sigma": packet.sigma if packet.sigma is not None else previous.get("sigma"),
-                "n": packet.n if packet.n is not None else previous.get("n"),
+                "mu": packet.mu if has_model_update else previous.get("mu"),
+                "sigma": packet.sigma if has_model_update else previous.get("sigma"),
+                "n": packet.n if has_model_update else previous.get("n"),
+                "modelUpdatedAt": received_at_iso if has_model_update else previous.get("modelUpdatedAt"),
                 "bytesSent": packet.bytes_sent if packet.bytes_sent is not None else previous.get("bytesSent"),
                 "bytesIfRawData": packet.bytes_if_raw_data if packet.bytes_if_raw_data is not None else previous.get("bytesIfRawData"),
             }
@@ -76,7 +79,7 @@ class GatewayStore:
                 "sourceTimestamp": packet.ts,
                 "status": status,
                 "connectivity": connectivity,
-                "lastUpdate": received_at.isoformat().replace("+00:00", "Z"),
+                "lastUpdate": received_at_iso,
                 **sticky,
             }
             environment["sensors"][manifest_node.sensor_id] = reading

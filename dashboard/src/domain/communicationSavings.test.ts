@@ -8,7 +8,7 @@ function sensor(id: string, bytesSent?: number, bytesIfRawData?: number): Sensor
     id, environmentId: "building-a", name: id, position: [0, 0, 0],
     reading: { temperature: 20, humidity: 50, anomalyScore: 0, lastUpdate: "2026-11-14T10:00:00Z", source: "live" },
     status: "normal", connectivity: "connected", neighbourIds: [], communicationRange: 10,
-    live: { gradientDistance: 2, via: null, escapeTo: null, mu: null, sigma: null, n: null,
+    live: { gradientDistance: 2, via: null, escapeTo: null, mu: null, sigma: null, n: null, modelUpdatedAt: null,
       networkAlert: false, simulated: false, bytesSent: bytesSent ?? null,
       bytesIfRawData: bytesIfRawData ?? null, sourceTimestamp: 1 },
   };
@@ -27,6 +27,13 @@ describe("communication savings", () => {
   });
 
   it("treats reset cumulative counters as a valid fresh total, never a negative delta", () => {
-    assert.equal(calculateCommunicationSavings([sensor("A-01", 5, 10)])?.bytesAvoided, 5);
+    assert.deepEqual(calculateCommunicationSavings([sensor("A-01", 0, 41)]), {
+      bytesSent: 0,
+      bytesIfRawData: 41,
+      bytesAvoided: 41,
+      reductionPercent: 100,
+      reportingNodes: 1,
+      totalNodes: 1,
+    });
   });
 });

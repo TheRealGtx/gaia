@@ -1,15 +1,24 @@
 "use client";
 
 import { Network, PanelLeftClose } from "lucide-react";
+import { useEffect, useState } from "react";
 import { useGaiaActions, useGaiaState } from "../../state/hooks";
 import { selectDashboard } from "../../state/selectors";
 import { Button, MetricCard, SegmentedControl } from "../ui";
+import { startModelAgeTicker } from "./modelPresentation";
 import { SensorCard } from "./SensorCard";
 
 export function TelemetryPanel() {
   const state = useGaiaState();
   const { dispatch } = useGaiaActions();
   const { environment, metrics } = selectDashboard(state);
+  const [modelAgeNow, setModelAgeNow] = useState(() => new Date());
+  const sensorDetailsVisible = state.telemetryView === "sensors"
+    && (state.telemetryPanelOpen || state.mobilePanel === "sensors");
+  useEffect(() => {
+    if (!sensorDetailsVisible) return;
+    return startModelAgeTicker(setModelAgeNow);
+  }, [sensorDetailsVisible]);
   return (
     <aside className="telemetry-panel" data-mobile-visible={state.mobilePanel === "sensors"} aria-hidden={!state.telemetryPanelOpen && state.mobilePanel !== "sensors"}>
       <header className="telemetry-panel__header">
@@ -30,7 +39,7 @@ export function TelemetryPanel() {
           <section className="sensor-list-view" aria-label="Deployed sensor nodes">
             <div className="sensor-list__head"><h3>Deployed sensor nodes</h3><span>Select to inspect</span></div>
             <div className="sensor-list">
-              {environment.sensors.map((sensor) => <SensorCard key={sensor.id} sensor={sensor} selected={sensor.id === state.selectedSensorId} onSelect={() => dispatch({ type: "select-sensor", sensorId: sensor.id })} />)}
+              {environment.sensors.map((sensor) => <SensorCard key={sensor.id} sensor={sensor} selected={sensor.id === state.selectedSensorId} now={modelAgeNow} onSelect={() => dispatch({ type: "select-sensor", sensorId: sensor.id })} />)}
             </div>
           </section>
         )}
