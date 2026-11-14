@@ -1,0 +1,4 @@
+# Shell scripts run on the boards (Linux). With Windows line endings, `sh`
+# reads "set -e" and stops with "Illegal option": keep them LF on every
+# checkout, including a Windows one copied over with scp.
+*.sh text eol=lf
