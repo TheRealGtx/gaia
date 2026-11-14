@@ -312,6 +312,12 @@ def local_ip():
         s.close()
 
 _bcast = None                                   # broadcast_addrs() cache
+_bcast_at = 0.0                                 # when it was computed
+_bcast_warned = False                           # the /24 guess is said once
+# Interfaces come and go: a board that boots before its Wi-Fi has an address,
+# or rejoins the hotspot with another one, must not keep sending to the subnet
+# it saw at startup. Reading them is a few ioctl calls, so every 10 s is free.
+BCAST_REFRESH = float(os.environ.get("BCAST_REFRESH", 10))
 
 def iface_networks():
     """Every non-loopback IPv4 address of this machine, with its real netmask.
@@ -388,11 +394,10 @@ def broadcast_addrs():
     BROADCAST=<addr> overrides all of it and sends to that one address only;
     PEERS bypasses broadcast entirely.
     """
-    global _bcast
-    if _bcast is not None:                          # computed once: `ip` is not
-        return _bcast                               # worth a subprocess per
-    if "BROADCAST" in os.environ:                   # second, and the warning is
-        _bcast = [os.environ["BROADCAST"]]          # not worth repeating
+    global _bcast, _bcast_at, _bcast_warned
+    if "BROADCAST" in os.environ:                   # forced: nothing to look up
+        return [os.environ["BROADCAST"]]
+    if _bcast is not None and time.time() - _bcast_at < BCAST_REFRESH:
         return _bcast
     addrs = ["255.255.255.255"]
     for itf in iface_networks():
@@ -402,15 +407,20 @@ def broadcast_addrs():
     if len(addrs) == 1:                             # no `ip` command: one guess
         ip = local_ip()
         if ip and not ip.startswith("127.") and ip.count(".") == 3:
-            print("warning: cannot read the netmasks, assuming /24 for %s. On a "
-                  "wider network (a /20 conference Wi-Fi, say) that address "
-                  "belongs to nobody: set BROADCAST=<x.y.z.255> or use PEERS."
-                  % ip, flush=True)
+            if not _bcast_warned:
+                _bcast_warned = True
+                print("warning: cannot read the netmasks, assuming /24 for %s. On a "
+                      "wider network (a /20 conference Wi-Fi, say) that address "
+                      "belongs to nobody: set BROADCAST=<x.y.z.255> or use PEERS."
+                      % ip, flush=True)
             addrs.append(ip.rsplit(".", 1)[0] + ".255")
-    _bcast = addrs
+    if _bcast is not None and addrs != _bcast:
+        # The one line that explains "it came back by itself" in the log.
+        print("network changed: now sending to %s" % ", ".join(addrs), flush=True)
+    _bcast, _bcast_at = addrs, time.time()
     return _bcast
 
-BCAST = broadcast_addrs()
+broadcast_addrs()                               # say the /24 warning at start
 
 def destinations():
     """Where a heartbeat goes: explicit peers, each neighbour's port, or broadcast."""
@@ -418,7 +428,7 @@ def destinations():
         return [(host, PORT) for nid, host in sorted(PEERS.items()) if nid in NEIGHBORS]
     if MODE == "unicast":
         return [(UNI_HOST, 5200 + nid) for nid in sorted(NEIGHBORS)]
-    return [(addr, PORT) for addr in BCAST]
+    return [(addr, PORT) for addr in broadcast_addrs()]
 
 def send_loop():
     s = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)

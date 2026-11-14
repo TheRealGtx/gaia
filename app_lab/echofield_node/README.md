@@ -96,3 +96,35 @@ Wi-Fi one. If the boards still cannot hear each other, run
 `main.py` decides by itself which of the two worlds it is in (the App Lab
 container or the board's OS), so the same file works in both. `NODE_HOST`
 overrides the guess if it is ever wrong.
+
+## Start at power-on, and come back by itself
+
+Started by hand, a board stops when the SSH session closes and stays off after a
+power cycle, so unplugging one to show self-healing means it never rejoins.
+Once it works by hand, make it a service, once per board:
+
+```bash
+sudo ./install_service.sh 1 2        # board 1
+sudo ./install_service.sh 2 1,3      # board 2
+sudo ./install_service.sh 3 2        # board 3
+```
+
+That installs two services, `gaia-node` (the network) and `gaia-sensor` (the
+Modulino and the LEDs). They start at power-on, restart by themselves within
+seconds if they die, and need no SSH session. They are separate on purpose: a
+Bridge hiccup can restart the LEDs, never the mesh. The node also re-reads its
+network interfaces every 10 s, so a board that boots before its Wi-Fi is ready,
+or rejoins the hotspot with another address, finds it again; its log then says
+`network changed: now sending to ...`.
+
+```bash
+journalctl -u gaia-node -f                     # the node's status lines
+journalctl -u gaia-sensor -f                   # readings and LED state
+sudo systemctl restart gaia-node gaia-sensor   # after editing /etc/gaia/board.env
+sudo ./install_service.sh --remove             # back to run_board.sh
+```
+
+The test that matters: `sudo reboot` one board, or pull its power and plug it
+back. Within about a minute it is back in the field and in the Live field view,
+with nobody touching a keyboard. While the services run, `run_board.sh` refuses
+to start a second copy.

@@ -26,6 +26,16 @@ ID=${1:?usage: run_board.sh NODE_ID NEIGHBORS   e.g. run_board.sh 2 1,3}
 NB=${2:?usage: run_board.sh NODE_ID NEIGHBORS   e.g. run_board.sh 2 1,3}
 HERE=$(cd "$(dirname "$0")" && pwd)
 ROOT=$(cd "$HERE/../.." && pwd)
+# Once install_service.sh has run, systemd owns this board: a second node here
+# would fight it for the ports and the Bridge, and lose in confusing ways.
+if command -v systemctl >/dev/null 2>&1 && systemctl is-active --quiet gaia-node 2>/dev/null; then
+    echo "this board already runs Gaia as a service, which does what this script does."
+    echo "watch it:        journalctl -u gaia-node -f   (and gaia-sensor)"
+    echo "restart it:      sudo systemctl restart gaia-node gaia-sensor"
+    echo "back to by hand: sudo ./install_service.sh --remove"
+    exit 1
+fi
+
 PY_NODE=${PY_NODE:-python3}
 PY_APP=${PY_APP:-python3}
 LOG=/tmp/gaia-node-$ID.log
