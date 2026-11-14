@@ -1,0 +1,31 @@
+# node / next (dashboard/)
+node_modules/
+.next/
+out/
+dist/
+build/
+*.tsbuildinfo
+npm-debug.log*
+yarn-error.log*
+
+# python (aggregate/, sensing_ml/, dashboard/gateway/)
+__pycache__/
+*.py[cod]
+.venv/
+venv/
+.pytest_cache/
+
+# local config and secrets: never on the demo repo
+.env
+.env.*
+!.env.example
+
+# recordings and captures, kept out of git on purpose (they are huge)
+*.mp4
+*.mov
+
+# os / editor
+.DS_Store
+Thumbs.db
+.idea/
+.vscode/

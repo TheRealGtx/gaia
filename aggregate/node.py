@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""EchoField node loop (aggregate computing part).
+"""Gaia node loop (aggregate computing part).
 
 Every node runs this same program. It only talks to the neighbours listed in
 the NEIGHBORS environment variable (simulated topology, see README), and
@@ -7,6 +7,10 @@ computes by itself:
   - dist:  hops from the nearest hazard (gradient), 0 = I am the hazard, 99 = unknown
   - alert: consensus alarm with hysteresis (needs agreeing neighbours)
   - escape_to: alive neighbour that is furthest from the hazard (optional, task 7)
+It also forwards, for the dashboard and Gemma's report only (the node itself
+never decides on them): `temperature` / `humidity` (the raw reading) and
+Chuqi's `bytes_sent` / `bytes_if_raw_data` green-AI counters. Field names are
+the ones Pietro's gateway validates.
 
 No server, no cloud: the dashboard is only a passive listener.
 
@@ -19,7 +23,13 @@ Run (several nodes on ONE laptop, unicast on 127.0.0.1, port 5000+id):
     MODE=unicast NODE_ID=2 NEIGHBORS=1,3 python3 node.py
 
 Type `a` + Enter to toggle the fake anomaly, a number (0..1) to set it,
-`q` + Enter to quit.
+`q` + Enter to quit. Without a sensor, `temperature` / `humidity` carry
+plausible values derived from the fake anomaly, flagged `"simulated": true`;
+FAKE_SENSOR=0 sends `null` instead.
+
+Chuqi's model has no read_sensor() yet, so the keyboard still drives the
+anomaly. ANOMALY_SRC=model runs her real anomaly_score() on those fake
+readings: it tests the whole chain without hardware.
 """
 
 import json
@@ -52,6 +62,8 @@ PARAM_EVERY = float(os.environ.get("PARAM_EVERY", 15))   # seconds between model
 ALERT_ON    = float(os.environ.get("ALERT_ON", 0.7))
 ALERT_OFF   = float(os.environ.get("ALERT_OFF", 0.4))
 AGREE_MIN   = int(os.environ.get("AGREE_MIN", 1))        # agreeing neighbours needed for the alert
+FAKE_SENSOR = os.environ.get("FAKE_SENSOR", "1").lower() not in ("0", "false", "no")
+ANOMALY_SRC = os.environ.get("ANOMALY_SRC", "auto").lower()   # auto | model | fake
 UNKNOWN     = 99                                         # "I don't know where the hazard is"
 
 # --------------------------------------------------------- shared state ----
@@ -61,13 +73,14 @@ params = {"mu": 0.0, "sigma": 1.0, "n": 0}    # overwritten by Chuqi's get_param
 table  = {}                                   # neighbour id -> (message, last_seen)
 lock   = threading.Lock()                     # protects state, params and table
 fake   = {"anomaly": float(os.environ.get("ANOMALY", 0.0))}   # keyboard-driven test value
+sensor = {"last": None}                       # last raw reading, sent for the dashboard
 running = threading.Event()
 running.set()
 
 # ----------------------------------------------------------- model hook ----
 # Chuqi's module (sensing_ml/model.py). Until it exists we run on the fake anomaly.
 # The node must never crash because the model is missing or raises.
-anomaly_score = get_params = merge_params = read_sensor = None
+anomaly_score = get_params = merge_params = read_sensor = bytes_report = None
 try:
     sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
     from sensing_ml.model import anomaly_score, get_params, merge_params  # noqa: F401
@@ -75,21 +88,103 @@ try:
         from sensing_ml.model import read_sensor  # only if Chuqi exposes the sensor read too
     except ImportError:
         read_sensor = None
+    try:
+        from sensing_ml.model import bytes_report  # green-AI counters, for Pietro's panel
+    except ImportError:
+        bytes_report = None
 except ImportError:
     pass
+
+def clean_reading(d):
+    """Keep only the numeric values of a reading, as plain floats.
+
+    Whatever read_sensor() returns ends up in json.dumps() inside the send
+    loop: a numpy float or a stray object would raise there and kill the
+    heartbeat thread without a word.
+    """
+    if not isinstance(d, dict):
+        return None
+    out = {}
+    for k, v in list(d.items())[:8]:                # a heartbeat is not a log file
+        if k == "fake":                             # a flag, not a measurement
+            out["fake"] = bool(v)
+            continue
+        try:
+            out[str(k)] = round(float(v), 2)
+        except (TypeError, ValueError):
+            continue
+    return out or None
+
+def fake_reading(a):
+    """Plausible temp/hum from the fake anomaly, so the dashboard panel can be
+    built before the Modulino is wired. Flagged, so nobody reads it as real."""
+    return {"temp": round(20.0 + 30.0 * a, 1),
+            "hum": round(45.0 - 25.0 * a, 1), "fake": True}
+
+def anomaly_source():
+    """What actually drives the anomaly right now, for the startup line."""
+    if anomaly_score is None:
+        return "keyboard (no model)"
+    if ANOMALY_SRC == "model":
+        return "Chuqi's model on fake readings"
+    if ANOMALY_SRC == "auto" and read_sensor is not None:
+        return "Chuqi's model on the sensor"
+    if ANOMALY_SRC == "auto":
+        return "keyboard (model found, no read_sensor)"
+    return "keyboard"
+
+def reading_fields(r):
+    """The last reading as the dashboard expects it: flat `temperature` and
+    `humidity`, both `null` when there is no sensor, plus `simulated` to say
+    the values were derived from the fake anomaly instead of measured."""
+    r = r or {}
+    return {"temperature": r.get("temp"), "humidity": r.get("hum"),
+            "simulated": bool(r.get("fake"))}
+
+def byte_counters():
+    """Chuqi's green-AI counters, forwarded in the heartbeat: the dashboard is
+    a passive listener, so this is its only way to see them. Absent (not zero)
+    when the model is not there, so the panel can say "awaiting counters"."""
+    if bytes_report is None:
+        return {}
+    try:
+        b = bytes_report()
+        if int(b["bytes_if_raw_data"]) <= 0:        # the model is loaded but not
+            return {}                               # scoring (no read_sensor yet):
+                                                    # sending only bytes_sent would
+                                                    # mean a negative saving
+        return {"bytes_sent": int(b["bytes_sent"]),
+                "bytes_if_raw_data": int(b["bytes_if_raw_data"])}
+    except Exception:                               # never break the heartbeat
+        return {}
 
 def get_anomaly():
     """The ONE place where the anomaly comes from (task 2).
 
-    Today: fake value from the keyboard. When Chuqi's module is ready and also
-    exposes read_sensor(), this automatically becomes anomaly_score(read_sensor()).
+    It also stores the raw reading in sensor["last"]: the node itself only ever
+    looks at the score, the dashboard and Gemma's report need the degrees.
+
+    Sources, chosen by ANOMALY_SRC:
+      auto   (default) Chuqi's model if it can read the sensor itself, else the
+             keyboard value. Her model has no read_sensor() yet, so: keyboard.
+      model  her anomaly_score() on fake readings, to test the whole chain with
+             no hardware. Careful in a demo: a jump of degrees is a jump of
+             score, so the keyboard knob becomes coarse (anything = alarm).
+      fake   the keyboard value, even when the model is importable.
     """
-    if anomaly_score is not None and read_sensor is not None:
+    use_model = anomaly_score is not None and (
+        ANOMALY_SRC == "model" or (ANOMALY_SRC == "auto" and read_sensor is not None))
+    if use_model:
         try:
-            return max(0.0, min(1.0, float(anomaly_score(read_sensor()))))
+            reading = read_sensor() if read_sensor else fake_reading(fake["anomaly"])
+            a = max(0.0, min(1.0, float(anomaly_score(reading))))
+            sensor["last"] = clean_reading(reading)
+            return a
         except Exception as e:                      # model problems must not stop the node
             print("model error, falling back to fake anomaly:", e)
-    return fake["anomaly"]
+    a = fake["anomaly"]
+    sensor["last"] = fake_reading(a) if FAKE_SENSOR else None
+    return a
 
 def local_params():
     """Model parameters to put in the heartbeat."""
@@ -115,7 +210,9 @@ def send_loop():
     while running.is_set():
         with lock:
             params.update(local_params())
-            msg = {"id": NODE_ID, **state, **params, "ts": time.time()}
+            msg = {"id": NODE_ID, **state, **params,
+                   **reading_fields(sensor["last"]), **byte_counters(),
+                   "ts": time.time()}
         data = json.dumps(msg).encode()
         for dest in destinations():
             try:
@@ -233,25 +330,33 @@ def key_loop():
             except ValueError:
                 print("commands: a = toggle anomaly, 0..1 = set anomaly, q = quit")
 
+def temp_of(m):
+    """` t=23.1` when the message carries a temperature, nothing otherwise."""
+    t = m.get("temperature")
+    return " t=%.1f" % t if isinstance(t, (int, float)) else ""
+
 def status_line(t0):
     with lock:
         nb = sorted(table.items())
         own = dict(state)
+        own["temperature"] = (sensor["last"] or {}).get("temp")
         now = time.time()
         seen = [(nid, m, now - t) for nid, (m, t) in nb]
-    parts = ["%-3d d=%-2s a=%.2f age=%.1fs%s" %
-             (nid, m.get("dist", "?"), float(m.get("anomaly", 0)), age,
+    parts = ["%-3d d=%-2s a=%.2f%s age=%.1fs%s" %
+             (nid, m.get("dist", "?"), float(m.get("anomaly", 0)), temp_of(m), age,
               " ALERT" if m.get("alert") else "")
              for nid, m, age in seen]
-    return "[%6.1fs] id=%d anom=%.2f dist=%-2d via=%-4s alert=%-3s esc=%-4s | %s" % (
-        time.time() - t0, NODE_ID, own["anomaly"], own["dist"], own["via"],
+    return "[%6.1fs] id=%d anom=%.2f%s dist=%-2d via=%-4s alert=%-3s esc=%-4s | %s" % (
+        time.time() - t0, NODE_ID, own["anomaly"], temp_of(own), own["dist"], own["via"],
         "ON" if own["alert"] else "off", own["escape_to"],
         "  ".join(parts) if parts else "(no alive neighbour)")
 
 if __name__ == "__main__":
-    print("node %d  mode=%s port=%d neighbours=%s  model=%s"
-          % (NODE_ID, MODE, PORT, sorted(NEIGHBORS),
-             "Chuqi's" if anomaly_score else "fake anomaly"), flush=True)
+    print("node %d  mode=%s port=%d neighbours=%s  anomaly=%s  sensor=%s"
+          % (NODE_ID, MODE, PORT, sorted(NEIGHBORS), anomaly_source(),
+             "real" if read_sensor else ("fake" if FAKE_SENSOR else "off")), flush=True)
+    state["anomaly"] = get_anomaly()                # the first heartbeat already
+                                                    # carries anomaly and sensor
     for fn in (send_loop, recv_loop, param_loop, key_loop):
         threading.Thread(target=fn, daemon=True).start()
     t0 = time.time()

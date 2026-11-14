@@ -1,4 +1,4 @@
-# EchoField: Action Plan (Saturday 14/11 → Sunday 15/11)
+# Gaia: Action Plan (Saturday 14/11 → Sunday 15/11)
 
 Team: **Giuliano** (aggregate computing), **Chuqi** (AI model), **Pietro** (demo, frontend, pitch and presentation).
 
@@ -11,15 +11,20 @@ Time reference: it is Saturday 10:00 now, the deadline is Sunday 10:00. **Goal: 
 Fix these "contracts" right away so you can work in parallel without blocking each other:
 
 - **UDP message** (JSON, broadcast on port 5005, one per node per second), as actually sent by `aggregate/node.py`:
-  `{"id": 2, "anomaly": 0.12, "dist": 3, "via": 1, "alert": false, "escape_to": 3, "mu": 22.4, "sigma": 1.1, "n": 120, "ts": 1731574800.2}`
+  `{"id": 2, "anomaly": 0.12, "dist": 3, "via": 1, "alert": false, "escape_to": 3, "mu": 22.4, "sigma": 1.1, "n": 120, "temperature": 23.8, "humidity": 46.2, "simulated": false, "bytes_sent": 84, "bytes_if_raw_data": 960, "ts": 1731574800.2}`
   `via` = the neighbour this node took its distance from (`null` if it is the hazard or knows nothing). It is what stops two nodes from adding 1 to each other for ever; for the dashboard it is also the arrow "where the alarm came from".
-  `via` and `escape_to` are extra fields and can be `null`: whoever reads the messages can ignore them.
-- **Chuqi provides, in `sensing_ml/model.py`**:
-  - `anomaly_score(sensor_values) -> float between 0 and 1`
-  - `get_params()` / `merge_params(others)` with `mu`, `sigma`, `n`
-  - `read_sensor() -> the dict given to anomaly_score`. The node calls both or neither: without `read_sensor` it stays on the fake anomaly. The App Lab bridge API is not confirmed yet, ask the mentors.
+  `temperature` / `humidity` = the last raw reading, forwarded for the dashboard and for Gemma's report (the node itself only ever looks at `anomaly`). Both are `null` when there is no sensor; `simulated: true` means they were derived from the fake anomaly, so the dashboard must label them instead of showing them as measurements (`FAKE_SENSOR=0` sends `null` instead).
+  `bytes_sent` / `bytes_if_raw_data` = Chuqi's green-AI counters, cumulative per node. **Absent from the message, not zero**, when the model is not loaded: the panel shows "awaiting counters" rather than a saving of 0%.
+  `n` = how many readings the model has learned. Below `WARMUP` (20) `mu`/`sigma` are still defaults (0.0 / 1.0) and must be shown as "learning", not as a temperature of 0 °C.
+  `dist = 99` means **unknown** (no path to a hazard is known), not "very far and therefore safe": never pick it as the safest area, never colour it green. Use `escape_to`, which the node already computes, as the "where to go" arrow.
+  `via`, `escape_to`, `n`, `simulated` and the byte counters are extra fields and can be `null` or absent: whoever reads the messages must ignore what it does not know, and must not reject a packet for carrying them.
+- **Chuqi provides, in `sensing_ml/model.py`** (landed 10:20, commit `2d9bf26`):
+  - `anomaly_score(values, t=None) -> float between 0 and 1`; `values` must contain at least `temp`
+  - `get_params()` / `merge_params(others)` with `mu`, `sigma`, `n` — wired and tested in the node
+  - `bytes_report() -> {"bytes_sent", "bytes_if_raw_data"}` for Pietro's green panel. **Not in the UDP message yet**: until the node forwards it, the dashboard has no way to see it.
+  - `read_sensor() -> the dict given to anomaly_score` is **still missing**, so the node has nothing to read the Modulino with and stays on the keyboard anomaly. Meanwhile `ANOMALY_SRC=model` drives her real `anomaly_score()` with fake readings, which tests the whole chain without hardware. The App Lab bridge API is not confirmed yet, ask the mentors.
 - **Giuliano provides** `aggregate/node.py`: the node loop (send, receive, gradient, consensus) that calls those functions.
-- **Pietro** listens to the same messages (read-only) and draws the dashboard in `dashboard/`.
+- **Pietro** listens to the same messages (read-only) and draws the dashboard in `dashboard/`. Decided 14/11: his Next.js app and its gateway move into `dashboard/` as they are, so Junction and Project Hub get one repository link. The public name is **Gaia**, not EchoField. Details and the integration rules: `dashboard/2026-11-14-report-for-pietro.md`.
 - Until Chuqi's model is ready, Giuliano uses a fake anomaly (a value that rises with a key press or with temperature).
 
 ---
