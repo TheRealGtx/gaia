@@ -91,7 +91,7 @@ export function applySimulationAction(
   if (action.type === "increase-temperature") {
     const sensors = updateSensor(state.sensors, action.sensorId, (sensor) => ({
       ...sensor,
-      status: "warning",
+      status: sensor.status === "critical" ? "critical" : "warning",
       reading: {
         ...sensor.reading,
         temperature: (sensor.reading.temperature ?? 0) + action.delta,
@@ -121,11 +121,12 @@ export function applySimulationAction(
   if (action.type === "confirm-fire") {
     const source = state.sensors.find((sensor) => sensor.id === action.sensorId);
     if (!source) return state;
+    if (state.hazards.some((hazard) => hazard.kind === "simulated-fire" && hazard.sourceSensorId === action.sensorId)) return state;
     const agreeingNeighbours = Math.max(2, Math.ceil(source.neighbourIds.length / 2));
     const sensorIds = new Set([action.sensorId, ...source.neighbourIds.slice(0, agreeingNeighbours)]);
     const sensors = state.sensors.map((item) => {
       const sensor = copySensor(item);
-      if (!sensorIds.has(sensor.id)) return sensor;
+      if (!sensorIds.has(sensor.id) || sensor.status === "offline" || (sensor.status === "critical" && sensor.id !== action.sensorId)) return sensor;
       return {
         ...sensor,
         status: sensor.id === action.sensorId ? "critical" as const : "warning" as const,
@@ -168,7 +169,7 @@ export function applySimulationAction(
       source: "simulation",
       sourceSensorId: action.sensorId,
     };
-    return finalize({ ...state, alerts: [...state.alerts.filter((item) => item.kind !== "network-confirmed"), alert], hazards: [...state.hazards.filter((item) => item.kind !== "simulated-fire"), hazard] }, sensors, action.sensorId);
+    return finalize({ ...state, alerts: [...state.alerts, alert], hazards: [...state.hazards, hazard] }, sensors, action.sensorId);
   }
 
   if (action.type === "block-edge") {

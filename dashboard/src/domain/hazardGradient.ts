@@ -19,22 +19,27 @@ export interface HazardGradientModel {
   maxLevel: number;
 }
 
-export function selectSimulatedHazardSource(environment: EnvironmentState): string | null {
-  const hazard = environment.hazards.find((item) => item.kind === "simulated-fire" || item.kind === "confirmed-fire");
-  if (hazard) {
-    return environment.sensors.reduce((nearest, sensor) => {
-      const distance = Math.hypot(
-        sensor.position[0] - hazard.position[0],
-        sensor.position[1] - hazard.position[1],
-        sensor.position[2] - hazard.position[2],
-      );
-      return distance < nearest.distance ? { id: sensor.id, distance } : nearest;
-    }, { id: "", distance: Number.POSITIVE_INFINITY }).id || null;
+export function selectSimulatedHazardSources(environment: EnvironmentState): string[] {
+  const hazards = environment.hazards.filter((item) => item.kind === "simulated-fire" || item.kind === "confirmed-fire");
+  if (hazards.length) {
+    return [...new Set(hazards.flatMap((hazard) => {
+      if (hazard.sourceSensorId && environment.sensors.some((sensor) => sensor.id === hazard.sourceSensorId)) return [hazard.sourceSensorId];
+      const nearest = environment.sensors.reduce((nearest, sensor) => {
+        const distance = Math.hypot(
+          sensor.position[0] - hazard.position[0],
+          sensor.position[1] - hazard.position[1],
+          sensor.position[2] - hazard.position[2],
+        );
+        return distance < nearest.distance ? { id: sensor.id, distance } : nearest;
+      }, { id: "", distance: Number.POSITIVE_INFINITY }).id;
+      return nearest ? [nearest] : [];
+    }))];
   }
 
-  return environment.alerts.find((alert) => alert.confirmed)?.sensorIds[0]
-    ?? environment.sensors.find((sensor) => sensor.status === "critical")?.id
-    ?? null;
+  return [...new Set([
+    ...environment.alerts.filter((alert) => alert.confirmed).flatMap((alert) => alert.sensorIds.slice(0, 1)),
+    ...environment.sensors.filter((sensor) => sensor.status === "critical").map((sensor) => sensor.id),
+  ])];
 }
 
 const FIELD_STOPS = [
@@ -74,11 +79,13 @@ export function gradientFieldColor(level: number | null, maxLevel: number, offli
 export function deriveHazardGradient({
   sensorIds,
   sourceId,
+  sourceIds = [],
   offlineSensorIds,
   connections,
 }: {
   sensorIds: string[];
   sourceId: string | null;
+  sourceIds?: string[];
   offlineSensorIds: string[];
   connections: GradientConnectionInput[];
 }): HazardGradientModel {
@@ -99,9 +106,10 @@ export function deriveHazardGradient({
   }
 
   const levels = new Map<string, number>();
-  if (sourceId && known.has(sourceId) && !offline.has(sourceId)) {
-    levels.set(sourceId, 0);
-    const queue = [sourceId];
+  const sources = [...new Set([...sourceIds, ...(sourceId ? [sourceId] : [])])].filter((id) => known.has(id) && !offline.has(id));
+  if (sources.length) {
+    for (const id of sources) levels.set(id, 0);
+    const queue = [...sources];
     for (let index = 0; index < queue.length; index += 1) {
       const current = queue[index];
       const nextLevel = (levels.get(current) ?? 0) + 1;
@@ -121,7 +129,7 @@ export function deriveHazardGradient({
   }));
 
   return {
-    sourceId: sourceId && levels.has(sourceId) ? sourceId : null,
+    sourceId: sources[0] ?? null,
     nodes,
     links: activeLinks.map(({ sourceId: from, targetId }) => ({ sourceId: from, targetId })),
     maxLevel,

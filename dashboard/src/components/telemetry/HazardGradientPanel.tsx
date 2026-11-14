@@ -6,7 +6,7 @@ import {
   deriveHazardGradient,
   deriveLiveHazardGradient,
   liveGradientStateLabel,
-  selectSimulatedHazardSource,
+  selectSimulatedHazardSources,
 } from "../../domain/hazardGradient";
 import { useGaiaActions, useGaiaState } from "../../state/hooks";
 import { selectActiveEnvironment } from "../../state/selectors";
@@ -23,7 +23,7 @@ export function HazardGradientPanel({ cameraSync }: { cameraSync: CameraSyncChan
   const state = useGaiaState();
   const { dispatch } = useGaiaActions();
   const environment = selectActiveEnvironment(state);
-  const simulatedSourceId = selectSimulatedHazardSource(environment);
+  const simulatedSourceIds = selectSimulatedHazardSources(environment);
   const model = state.mode === "live"
     ? deriveLiveHazardGradient(environment.sensors.map((sensor) => ({
       sensorId: sensor.id,
@@ -33,11 +33,13 @@ export function HazardGradientPanel({ cameraSync }: { cameraSync: CameraSyncChan
     })), environment.topology.connections)
     : deriveHazardGradient({
       sensorIds: environment.sensors.map((sensor) => sensor.id),
-      sourceId: simulatedSourceId,
+      sourceId: null,
+      sourceIds: simulatedSourceIds,
       offlineSensorIds: environment.sensors.filter((sensor) => sensor.status === "offline").map((sensor) => sensor.id),
       connections: environment.topology.connections,
     });
   const sourceId = model.sourceId;
+  const sourceCount = model.nodes.filter((node) => node.level === 0 && !node.offline).length;
   const scene = createHazardGradientSceneModel(environment.sensors, model, state.selectedSensorId);
 
   return (
@@ -51,16 +53,19 @@ export function HazardGradientPanel({ cameraSync }: { cameraSync: CameraSyncChan
         Synchronized 3D sensor mesh. The view follows the main environment map. Only sensor points and their active connections are shown.
       </p>
       <div className="gradient-map" aria-describedby="hazard-gradient-description">
-        <HazardGradientScene3D
-          key={environment.definition.id}
-          scene={scene}
-          cameraSync={cameraSync}
-          environmentId={environment.definition.id}
-          mode={state.mode}
-          maxLevel={model.maxLevel}
-          sourceId={sourceId}
-          onSelectSensor={(sensorId) => dispatch({ type: "select-sensor", sensorId })}
-        />
+        <div className="gradient-map__scene">
+          <HazardGradientScene3D
+            key={environment.definition.id}
+            scene={scene}
+            cameraSync={cameraSync}
+            environmentId={environment.definition.id}
+            mode={state.mode}
+            theme={state.theme}
+            maxLevel={model.maxLevel}
+            sourceId={sourceId}
+            onSelectSensor={(sensorId) => dispatch({ type: "select-sensor", sensorId })}
+          />
+        </div>
         <div className="gradient-map__controls" role="group" aria-label="Select a sensor in the 3D hazard gradient">
           {scene.nodes.map((node) => {
             const stateLabel = state.mode === "live"
@@ -82,7 +87,7 @@ export function HazardGradientPanel({ cameraSync }: { cameraSync: CameraSyncChan
         </div>
       </div>
       <footer className="gradient-panel__footer">
-        <span><Flame size={12} /> {sourceId ? "0 source" : "No active source"}</span>
+        <span><Flame size={12} /> {sourceCount ? `${sourceCount} ${sourceCount === 1 ? "source" : "sources"} · L0` : "No active source"}</span>
         <span className="gradient-scale" aria-hidden="true" />
         <span>{state.mode === "live" ? (sourceId ? "1 warning · 2+ safe · 99 unknown" : "No hazard · 99 nominal") : `L${Math.max(2, model.maxLevel)} outer field`}</span>
       </footer>

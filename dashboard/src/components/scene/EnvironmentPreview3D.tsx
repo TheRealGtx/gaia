@@ -29,8 +29,9 @@ export function EnvironmentPreview3D({ definition }: { definition: EnvironmentDe
       >
         <PreviewCamera building={building} />
         <color attach="background" args={[state.theme === "dark" ? "#0b1714" : building ? "#edf5f0" : "#e5efe1"]} />
-        <ambientLight intensity={1.7} />
-        <directionalLight position={[12, 20, 15]} intensity={2.2} />
+        <ambientLight intensity={.45} />
+        <hemisphereLight args={["#dce7ed", "#626449", 1.15]} />
+        <directionalLight position={[24, 52, 28]} color="#fff1d6" intensity={2.2} />
         {building
           ? <BuildingScene definition={definition} floorId="all" selectedRoomId={null} onSelectRoom={() => undefined} showLabels={false} />
           : <ForestScene definition={definition} showLabels={false} />}

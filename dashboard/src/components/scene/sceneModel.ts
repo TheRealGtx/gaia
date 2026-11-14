@@ -1,5 +1,7 @@
-import type { EnvironmentState, EvacuationRoute } from "../../domain/types.ts";
+import type { EnvironmentState, EvacuationRoute, Vector3Tuple } from "../../domain/types.ts";
+import { forestElevation } from "../../domain/terrain.ts";
 import { deriveFireVisual } from "./fireVisual.ts";
+import { projectForestRoute } from "./routeGeometry.ts";
 
 export function createSceneModel(
   state: EnvironmentState,
@@ -22,13 +24,22 @@ export function createSceneModel(
     }).map((hazard) => {
       if (hazard.kind === "obstruction") return { ...hazard, visual: undefined };
       const sensor = state.sensors.find((candidate) => candidate.id === hazard.sourceSensorId);
+      const floor = state.definition.floors.find((item) => item.id === sensor?.floorId);
+      const position: Vector3Tuple = [
+        hazard.position[0],
+        state.definition.kind === "forest"
+          ? forestElevation(hazard.position[0], hazard.position[2]) + .06
+          : floor ? floor.elevation + .2 : hazard.position[1],
+        hazard.position[2],
+      ];
       return {
         ...hazard,
+        position,
         visual: deriveFireVisual(sensor?.reading.temperature ?? null, sensor?.reading.humidity ?? null, hazard.radius),
       };
     }),
     exits: state.definition.exits,
     rooms: state.definition.rooms.filter((room) => visible(room.floorId)),
-    routePoints: route?.points ?? [],
+    routePoints: state.definition.kind === "forest" ? projectForestRoute(route?.points ?? []) : route?.points ?? [],
   };
 }

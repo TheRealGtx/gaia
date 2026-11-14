@@ -266,6 +266,8 @@ function buildForestDefinition(): EnvironmentDefinition {
     ["south-west-trail", "South-west Trail", "trail", -24, 19],
     ["south-clearing", "South Clearing", "clearing", 4, 21],
     ["east-exit", "East Trailhead", "exit", 36, 9],
+    ["north-exit", "North Ridge Exit", "exit", 0, -28],
+    ["south-exit", "South Clearing Exit", "exit", 4, 28],
   ] as const;
   const waypoints: Waypoint[] = waypointData.map(([waypointId, name, kind, x, z]) => ({ id: waypointId, name, kind, position: elevatedPoint(x, z) }));
   const p = (waypointId: string) => waypoints.find((waypoint) => waypoint.id === waypointId)!.position;
@@ -282,6 +284,10 @@ function buildForestDefinition(): EnvironmentDefinition {
     edge("south-west-clearing", "south-west-trail", "south-clearing", [p("south-west-trail"), elevatedPoint(-10, 22), p("south-clearing")]),
     edge("south-lake", "south-clearing", "lake-trail", [p("south-clearing"), elevatedPoint(12, 13), p("lake-trail")]),
     edge("south-east", "south-clearing", "east-exit", [p("south-clearing"), elevatedPoint(21, 17), p("east-exit")]),
+    edge("north-gate", "north-clearing", "north-exit", [p("north-clearing"), p("north-exit")]),
+    edge("ridge-north-gate", "north-west-ridge", "north-exit", [p("north-west-ridge"), elevatedPoint(-16, -26), p("north-exit")]),
+    edge("south-gate", "south-clearing", "south-exit", [p("south-clearing"), p("south-exit")]),
+    edge("south-west-gate", "south-west-trail", "south-exit", [p("south-west-trail"), elevatedPoint(-12, 27), p("south-exit")]),
   ];
 
   const rawSensors: SensorNode[] = [];
@@ -316,6 +322,8 @@ function buildForestDefinition(): EnvironmentDefinition {
     exits: [
       { id: "forest-north-west", name: "West Trailhead", waypointId: "west-exit", position: p("west-exit") },
       { id: "forest-north-east", name: "East Trailhead", waypointId: "east-exit", position: p("east-exit") },
+      { id: "forest-north-ridge", name: "North Ridge Exit", waypointId: "north-exit", position: p("north-exit") },
+      { id: "forest-north-south", name: "South Clearing Exit", waypointId: "south-exit", position: p("south-exit") },
     ],
     waypoints,
     routeGraph: { vertices: waypoints, edges: forestEdges },

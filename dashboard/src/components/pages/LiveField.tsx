@@ -34,6 +34,7 @@ export function LiveField() {
 
   return (
     <main className="live-field" aria-label="Live field">
+      <h1 className="sr-only">Live sensor network</h1>
       <header className="live-field__head">
         <div className={`live-field__status live-field__status--${banner.status}`}>
           <strong>{banner.label}</strong>

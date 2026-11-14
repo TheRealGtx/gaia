@@ -4,8 +4,33 @@ import { ENVIRONMENT_BY_ID } from "../../config/environments.ts";
 import { selectBestRoute, selectRoutes } from "../../routing/routeSelectors.ts";
 import { applySimulationAction, createInitialEnvironmentState } from "../../simulation/engine.ts";
 import { createSceneModel } from "./sceneModel.ts";
+import { forestElevation } from "../../domain/terrain.ts";
 
 describe("digital twin view model", () => {
+  it("keeps every forest route above the terrain between waypoints without changing routing data", () => {
+    const state = createInitialEnvironmentState(ENVIRONMENT_BY_ID["forest-north"]);
+    for (const origin of state.definition.waypoints) {
+      for (const route of selectRoutes(state, origin.id)) {
+        const original = structuredClone(route);
+        const points = createSceneModel(state, route, "all").routePoints;
+        for (let index = 1; index < points.length; index += 1) {
+          const a = points[index - 1];
+          const b = points[index];
+          for (let step = 0; step <= 20; step += 1) {
+            const t = step / 20;
+            const x = a[0] + (b[0] - a[0]) * t;
+            const y = a[1] + (b[1] - a[1]) * t;
+            const z = a[2] + (b[2] - a[2]) * t;
+            assert.ok(y - forestElevation(x, z) >= .3, `${route.id}: route intersects terrain at ${x}, ${z}`);
+          }
+        }
+        for (const waypoint of original.points) assert.ok(points.some((point) => point[0] === waypoint[0] && point[2] === waypoint[2]));
+        assert.deepEqual(route, original);
+      }
+    }
+    assert.deepEqual(createSceneModel(state, null, "all").routePoints, []);
+  });
+
   it("derives synchronized markers, mesh links and graph-following route points", () => {
     const state = createInitialEnvironmentState(ENVIRONMENT_BY_ID["building-a"]);
     const route = selectBestRoute(selectRoutes(state, "office-a"));
@@ -24,6 +49,8 @@ describe("digital twin view model", () => {
     assert.equal(model.hazards[0]?.kind, "simulated-fire");
     assert.equal(model.hazards[0]?.visualOnly, true);
     assert.equal(model.sensors.find((sensor) => sensor.id === "N-03")?.status, "critical");
+    const point = model.hazards[0].position;
+    assert.equal(point[1], forestElevation(point[0], point[2]) + .06);
   });
 
   it("scales the fire mesh from the source sensor temperature and humidity", () => {
@@ -58,6 +85,7 @@ describe("digital twin view model", () => {
     const fire = applySimulationAction(initial, { type: "confirm-fire", sensorId: initial.definition.fireSensorId });
 
     assert.equal(createSceneModel(fire, null, "level-1").hazards.length, 1);
+    assert.equal(createSceneModel(fire, null, "level-1").hazards[0].position[1], initial.definition.floors[0].elevation + .2);
     assert.equal(createSceneModel(fire, null, "level-4").hazards.length, 0);
     assert.equal(createSceneModel(fire, null, "all").hazards.length, 1);
   });
