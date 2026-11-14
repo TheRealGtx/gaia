@@ -37,9 +37,8 @@ The host is reachable from inside the container at the gateway address,
 normally `172.18.0.1`. So: the app sends readings there once a second, and the
 node answers with its state for the LEDs. One datagram each way.
 
-**I am writing the node side** (a reader on UDP 5006 that feeds `read_sensor`
-and replies with the state). Your side replaces the whole
-`# ---- network node ----` block with roughly this:
+**The node side is done and tested** (commit `cc69b69`). Your side replaces the
+whole `# ---- network node ----` block with this:
 
 ```python
 import json, socket
@@ -63,6 +62,25 @@ def send_reading():
 
 and `colour()` reads `_state["dist"]` / `_state["alert"]` instead of
 `node.state`. The colour mapping you wrote stays exactly as it is.
+
+What the node does on its side, so you can predict it:
+
+- it answers the **same** datagram with `{"id", "dist", "alert", "escape_to",
+  "anomaly"}`: no second socket, nothing to open on your side;
+- it listens on 5006 on a board (`SENSOR_PORT`; 5100+id when several nodes share
+  a laptop, which is only for our tests);
+- a reading older than five seconds (`SENSOR_TTL`) is not used, so keep sending
+  once a second even when nothing changes. If the app stops, the node goes back
+  to the keyboard anomaly rather than scoring degrees from five minutes ago;
+- the first reading switches it to your model by itself, and it says so in its
+  opening line: `anomaly=Chuqi's model on the sensor`;
+- if the port is busy it prints `sensor bridge off, ...` and keeps running on
+  the keyboard anomaly. The mesh never depends on the hardware being there.
+
+Measured end to end, with your model loaded in the node: 22.5 °C gives anomaly
+0.0 and `dist 99`; 60.0 °C gives 1.0 through your rate feature, `dist 0`, and
+the reply that turns the Pixels red. So the moment your ten lines are in, the
+hair dryer drives the LEDs of every board.
 
 Three things get simpler for you:
 
