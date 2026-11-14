@@ -6,7 +6,7 @@ Neighbours share only mu / sigma / n (federated learning).
 
 Interface for Giuliano's node loop:
     anomaly_score(values) -> float 0..1
-    get_params()          -> {"mu", "sigma", "n"}
+    get_params(share=False) -> {"mu", "sigma", "n"}  (share=True = these bytes go on air)
     merge_params(list)    -> None
 """
 import json
@@ -61,7 +61,12 @@ class NodeModel:
 
     def score(self, values, t=None):
         t = time.time() if t is None else t
-        x = values["temp"]
+        try:
+            x = float(values["temp"])
+        except (KeyError, TypeError, ValueError):
+            # Raise something readable: node.py prints it and falls back to the
+            # fake anomaly, which on stage looks like "the model does nothing".
+            raise ValueError("model.score: reading has no numeric 'temp': %r" % (values,))
         s = max(self.level_score(x), self.rate_score(t, x))
         if s < LEARN_BELOW:
             self._learn(x)              # never learn the hazard as the new normal
@@ -69,9 +74,12 @@ class NodeModel:
         return s
 
     # ---- federated learning ------------------------------------------
-    def get_params(self):
+    def get_params(self, share=False):
+        """share=True only when the parameters are really sent to neighbours
+        (node.py: every PARAM_EVERY s). Reading them for display costs nothing."""
         p = {"mu": round(self.mu, 3), "sigma": round(self.sigma, 3), "n": self.n}
-        self.bytes_sent += len(json.dumps(p))
+        if share:
+            self.bytes_sent += len(json.dumps(p))
         return p
 
     def merge_params(self, others):
@@ -95,8 +103,8 @@ def anomaly_score(values, t=None):
     return _model.score(values, t)
 
 
-def get_params():
-    return _model.get_params()
+def get_params(share=False):
+    return _model.get_params(share)
 
 
 def merge_params(neighbour_params):

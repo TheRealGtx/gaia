@@ -39,7 +39,7 @@ print(f"   below 0.4 after {back} s")
 
 print("4) cold start: new node with n=0 gets neighbours' params")
 new = NodeModel()
-new.merge_params([m.get_params(), m.get_params()])
+new.merge_params([m.get_params(share=True), m.get_params(share=True)])
 print(f"   mu {new.mu:.2f}  sigma {new.sigma:.2f}  n {new.n}")
 print(f"   normal reading -> {new.score(normal(0), t=0):.2f}, "
       f"hot reading -> {new.score({'temp': 30.0}, t=1):.2f}")
@@ -55,3 +55,7 @@ for _ in range(50):
 print(f"   n after 50 merges: {a.n} (cap {N_MAX})")
 
 print(f"6) bytes: sent {m.bytes_sent}, raw would be {m.bytes_if_raw_data}")
+before = m.bytes_sent
+for _ in range(10):
+    m.get_params()                      # display only: must not be billed
+print(f"   display reads billed: {m.bytes_sent - before} bytes (want 0)")
