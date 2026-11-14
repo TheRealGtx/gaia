@@ -1,4 +1,4 @@
-// EchoField node: MCU side (one sketch per board, shared by sensing + LEDs).
+// Gaia node: MCU side (one sketch per board, shared by sensing + LEDs).
 //
 // Exposes to the Linux/Python side through the App Lab Bridge:
 //   read_temp()             -> float, degrees C   (Modulino Thermo)

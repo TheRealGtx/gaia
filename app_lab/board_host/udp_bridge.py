@@ -65,13 +65,26 @@ s = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
 s.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
 s.setsockopt(socket.SOL_SOCKET, socket.SO_BROADCAST, 1)
 s.bind(("", PORT))
+s.settimeout(1.0)                                   # so the 10 s report prints even when silent
 print("udp_bridge: wifi %s -> broadcast %s, container %s:%d"
       % ([str(i) for i in wifi], wifi_bcast, container, PORT), flush=True)
 
 up = down = 0
 last = time.time()
+def report():
+    global up, down, last
+    if time.time() - last >= 10:
+        print("udp_bridge: %d out to Wi-Fi, %d in to container (last 10 s)" % (up, down), flush=True)
+        up = down = 0
+        last = time.time()
+
+
 while True:
-    data, (src, sport) = s.recvfrom(4096)
+    report()
+    try:
+        data, (src, sport) = s.recvfrom(4096)
+    except socket.timeout:
+        continue
     if src in my_ips:
         continue                                    # my own re-broadcast looping back
     try:
@@ -87,7 +100,3 @@ while True:
             down += 1
     except OSError as e:
         print("udp_bridge: send failed:", e, flush=True)
-    if time.time() - last >= 10:
-        print("udp_bridge: %d out to Wi-Fi, %d in to container (last 10 s)" % (up, down), flush=True)
-        up = down = 0
-        last = time.time()
