@@ -16,6 +16,11 @@ The model parameters (`mu`, `sigma`, `n`) ride in one heartbeat out of
 PARAM_EVERY and are absent from the others: that is what federated learning
 actually costs. Whoever reads the messages keeps the last value it saw.
 
+The Modulino lives in the App Lab container and this node runs on the board's
+host (the container's network cannot reach the Wi-Fi), so the readings arrive
+over a small bridge: the app sends {"temp": .., "hum": ..} to SENSOR_PORT and
+gets this node's state back in the same exchange, which is what drives its LEDs.
+
 No server, no cloud: the dashboard is only a passive listener.
 
 Run (two boards / two laptops on the same Wi-Fi, broadcast):
@@ -78,6 +83,11 @@ PEERS     = _env_peers("PEERS")                           # {neighbour id: addre
 # on one laptop; in broadcast mode every node shares port 5005.
 PORT      = int(os.environ.get("PORT", 5000 + NODE_ID if MODE == "unicast" else 5005))
 
+# The App Lab app talks to this port. One node per board in broadcast mode, so
+# 5006 for everyone; in unicast several nodes share a laptop, so one port each.
+SENSOR_PORT = int(os.environ.get("SENSOR_PORT",
+                                 5100 + NODE_ID if MODE == "unicast" else 5006))
+SENSOR_TTL  = float(os.environ.get("SENSOR_TTL", 5))     # a reading older than this is stale
 TIMEOUT     = float(os.environ.get("TIMEOUT", 4))        # a neighbour is alive if heard within this
 HEARTBEAT   = float(os.environ.get("HEARTBEAT", 1))      # seconds between messages
 PARAM_EVERY = float(os.environ.get("PARAM_EVERY", 15))   # seconds between model merges (task 6)
@@ -98,6 +108,7 @@ peers  = {}                                   # id -> last {mu, sigma, n} seen f
 lock   = threading.Lock()                     # protects state, params and table
 fake   = {"anomaly": float(os.environ.get("ANOMALY", 0.0))}   # keyboard-driven test value
 sensor = {"last": None}                       # last raw reading, sent for the dashboard
+bridge = {"last": None, "at": 0.0, "seen": False}   # readings from the App Lab app
 running = threading.Event()
 running.set()
 
@@ -151,10 +162,10 @@ def anomaly_source():
         return "keyboard (no model)"
     if ANOMALY_SRC == "model":
         return "Chuqi's model on fake readings"
-    if ANOMALY_SRC == "auto" and read_sensor is not None:
+    if ANOMALY_SRC == "auto" and (read_sensor is not None or bridge["seen"]):
         return "Chuqi's model on the sensor"
     if ANOMALY_SRC == "auto":
-        return "keyboard (model found, no read_sensor)"
+        return "keyboard until the App Lab app sends a reading"
     return "keyboard"
 
 def reading_fields(r):
@@ -182,6 +193,31 @@ def byte_counters():
     except Exception:                               # never break the heartbeat
         return {}
 
+def bridge_sensor():
+    """The last reading from the App Lab app, or None when it went quiet.
+
+    Stale is not usable: if the app dies, the node must fall back rather than
+    keep scoring a temperature from five minutes ago.
+    """
+    with lock:
+        r, at = bridge["last"], bridge["at"]
+    if r is not None and time.time() - at < SENSOR_TTL:
+        return dict(r)
+    return None
+
+def current_reading():
+    """Where the degrees come from: the App Lab app over the bridge, else
+    Chuqi's read_sensor() when the node runs beside the hardware, else None."""
+    r = bridge_sensor()
+    if r is not None:
+        return r
+    if read_sensor is not None:
+        try:
+            return read_sensor()
+        except Exception as e:                      # a sensor must not stop the node
+            print("read_sensor failed:", e)
+    return None
+
 def get_anomaly():
     """The ONE place where the anomaly comes from (task 2).
 
@@ -196,18 +232,23 @@ def get_anomaly():
              score, so the keyboard knob becomes coarse (anything = alarm).
       fake   the keyboard value, even when the model is importable.
     """
-    use_model = anomaly_score is not None and (
-        ANOMALY_SRC == "model" or (ANOMALY_SRC == "auto" and read_sensor is not None))
+    reading = current_reading()                     # measured degrees, or None
+    use_model = anomaly_score is not None and ANOMALY_SRC != "fake" and (
+        reading is not None or ANOMALY_SRC == "model")
     if use_model:
         try:
-            reading = read_sensor() if read_sensor else fake_reading(fake["anomaly"])
+            if reading is None:                     # ANOMALY_SRC=model, no hardware
+                reading = fake_reading(fake["anomaly"])
             a = max(0.0, min(1.0, float(anomaly_score(reading))))
             sensor["last"] = clean_reading(reading)
             return a
         except Exception as e:                      # model problems must not stop the node
             print("model error, falling back to fake anomaly:", e)
     a = fake["anomaly"]
-    sensor["last"] = fake_reading(a) if FAKE_SENSOR else None
+    if reading is not None:
+        sensor["last"] = clean_reading(reading)     # measured, even if unused
+    else:
+        sensor["last"] = fake_reading(a) if FAKE_SENSOR else None
     return a
 
 def local_params():
@@ -376,6 +417,46 @@ def send_loop():
             except OSError as e:                    # e.g. Wi-Fi down: keep the node alive
                 print("send failed to", dest, ":", e)
         time.sleep(HEARTBEAT)
+
+def sensor_loop():
+    """The bridge to the hardware, which lives in the App Lab container.
+
+    The app sends {"temp": .., "hum": ..}; we answer the SAME datagram with this
+    node's state, so its LEDs show what the network decided instead of a local
+    temperature threshold. One exchange per second, no server in between.
+
+    Optional on purpose: if the port is taken, the node keeps running on the
+    keyboard anomaly instead of dying. The hardware is a feature, the mesh is
+    the product.
+    """
+    s = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
+    s.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
+    try:
+        s.bind(("", SENSOR_PORT))
+    except OSError as e:
+        print("sensor bridge off, cannot listen on %d: %s" % (SENSOR_PORT, e), flush=True)
+        return
+    while running.is_set():
+        try:
+            data, addr = s.recvfrom(1024)
+            r = clean_reading(json.loads(data))
+        except (ValueError, OSError):               # junk or socket hiccup
+            continue
+        if r is not None:
+            with lock:
+                bridge["last"], bridge["at"] = r, time.time()
+                first, bridge["seen"] = not bridge["seen"], True
+            if first:
+                print("sensor bridge: first reading from %s, %s"
+                      % (addr[0], r), flush=True)
+        with lock:
+            reply = {"id": NODE_ID, "dist": state["dist"], "alert": state["alert"],
+                     "escape_to": state["escape_to"],
+                     "anomaly": round(float(state["anomaly"]), 3)}
+        try:
+            s.sendto(json.dumps(reply).encode(), addr)
+        except OSError:
+            pass                                    # the app will ask again in a second
 
 def recv_loop():
     s = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
@@ -560,12 +641,14 @@ def main(sensor=None, score=None):
     print("node %d  mode=%s port=%d neighbours=%s  anomaly=%s  sensor=%s"
           % (NODE_ID, MODE, PORT, sorted(NEIGHBORS), anomaly_source(),
              "real" if read_sensor else ("fake" if FAKE_SENSOR else "off")), flush=True)
+    print("sensor bridge listening on UDP %d (App Lab app -> readings, <- state)"
+          % SENSOR_PORT, flush=True)
     print("my address %s, sending to %s"
           % (local_ip() or "unknown", ", ".join("%s:%d" % d for d in destinations())),
           flush=True)
     state["anomaly"] = get_anomaly()                # the first heartbeat already
                                                     # carries anomaly and sensor
-    for fn in (send_loop, recv_loop, param_loop, key_loop):
+    for fn in (send_loop, recv_loop, param_loop, key_loop, sensor_loop):
         threading.Thread(target=fn, daemon=True).start()
     t0 = time.time()
     last_print = 0.0
