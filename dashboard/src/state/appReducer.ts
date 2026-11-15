@@ -10,6 +10,7 @@ import type {
 import { createInitialEnvironmentState } from "../simulation/engine.ts";
 import { LIVE_SENSOR_IDS } from "../live/liveManifest.ts";
 import type { ColorTheme, ThemePreference } from "./theme.ts";
+import { LIVE_ENABLED } from "../config/features.ts";
 
 export type AppPage = "Overview" | "Live field" | "Environments" | "Sensor Logs";
 export type MobilePanel = "map" | "sensors" | "analysis";
@@ -145,11 +146,15 @@ export function appReducer(state: AppState, action: AppAction): AppState {
     const room = state.environments[state.activeEnvironmentId].definition.rooms.find((item) => item.id === action.roomId);
     return room ? { ...state, selectedRoomId: room.id, selectedOriginId: room.waypointId } : state;
   }
-  if (action.type === "set-page") return { ...state, page: action.page };
+  if (action.type === "set-page") {
+    if (action.page === "Live field" && !LIVE_ENABLED) return state;   // public build: no live page
+    return { ...state, page: action.page };
+  }
   if (action.type === "set-mobile-panel") return { ...state, mobilePanel: action.panel };
   if (action.type === "toggle-telemetry-panel") return { ...state, telemetryPanelOpen: !state.telemetryPanelOpen };
   if (action.type === "set-telemetry-view") return { ...state, telemetryView: action.view };
   if (action.type === "set-mode") {
+    if (action.mode === "live" && !LIVE_ENABLED) return state;          // public build: no gateway to reach
     if (action.mode === "simulation") {
       const environments = Object.fromEntries(ENVIRONMENTS.map((definition) => [definition.id, createInitialEnvironmentState(definition)])) as Record<EnvironmentId, EnvironmentState>;
       const environment = environments[state.activeEnvironmentId];

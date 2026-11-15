@@ -3,6 +3,7 @@
 import { Building2, ChevronDown, Settings, Trees } from "lucide-react";
 import { useState } from "react";
 import { ENVIRONMENTS } from "../../config/environments";
+import { LIVE_ENABLED } from "../../config/features";
 import type { EnvironmentId } from "../../domain/types";
 import { useGaiaActions, useGaiaState } from "../../state/hooks";
 import { overallStatus } from "../../state/selectors";
@@ -30,13 +31,15 @@ export function TopBar() {
         <ChevronDown className="environment-select__chevron" size={14} aria-hidden="true" />
       </div>
       <nav className="topbar__nav" aria-label="Main navigation">
-        {(["Overview", "Live field", "Environments", "Sensor Logs"] as const).map((page) => (
+        {(["Overview", "Live field", "Environments", "Sensor Logs"] as const).filter((page) => LIVE_ENABLED || page !== "Live field").map((page) => (
           <Button key={page} variant="ghost" aria-current={state.page === page ? "page" : undefined} onClick={() => dispatch({ type: "set-page", page })}>{page}</Button>
         ))}
       </nav>
       <span className="topbar__status" role="status"><StatusBadge status={status}>{statusText}</StatusBadge></span>
       <div className="topbar__utilities">
-        <SegmentedControl label="Data source" value={state.mode} options={[{ value: "simulation", label: "Simulation" }, { value: "live", label: "Live" }]} onChange={(mode) => dispatch({ type: "set-mode", mode })} />
+        {LIVE_ENABLED
+          ? <SegmentedControl label="Data source" value={state.mode} options={[{ value: "simulation", label: "Simulation" }, { value: "live", label: "Live" }]} onChange={(mode) => dispatch({ type: "set-mode", mode })} />
+          : <span title="This public version runs the network simulation; the physical boards are shown live at the stand"><StatusBadge status="normal" dot={false}>Simulation</StatusBadge></span>}
       </div>
       <Button
         className="settings-toggle"

@@ -1,6 +1,7 @@
 # node / next (dashboard/)
 node_modules/
 .next/
+.next-public/
 out/
 dist/
 build/
