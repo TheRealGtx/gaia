@@ -38,6 +38,13 @@ Settings (environment, all optional):
     NODE_HOST    address of the board host seen from the container
                  (default: this container's default gateway, else 172.18.0.1)
     SENSOR_PORT  5006, must match node.py
+    TEMP_OFFSET  °C added to every temperature reading (default 0). For a board
+                 whose sensor reads steadily warmer or colder than the others
+                 in the same room: the shared model has sigma ~0.25 C (floor
+                 0.5), so a +1 C offset alone scores 0.5, above LEARN_BELOW,
+                 and the board never learns it and sits on the edge of alert.
+                 Measure it next to another board, set it in
+                 /etc/gaia/board.env, restart gaia-sensor.
     GAIA_MODE=test   wiring check with no node: LEDs red above 30 C. The 30 C
                  threshold is ONLY a wiring test. Never ship it: a fixed
                  threshold is exactly what our pitch says we do not do.
@@ -69,6 +76,7 @@ RECORD = os.path.abspath(os.environ.get("RECORD", "readings.csv"))
 TEST_MODE = os.environ.get("GAIA_MODE", "network") == "test"
 HOT = 30.0                       # TEST MODE ONLY, see docstring
 PORT = int(os.environ.get("SENSOR_PORT", 5006))
+TEMP_OFFSET = float(os.environ.get("TEMP_OFFSET", "0") or 0)   # per-board calibration
 NODE_SILENT = 5.0                # seconds without an answer before the LEDs say so
 UNKNOWN = 99                     # node.py: "I know of no hazard"
 
@@ -76,7 +84,7 @@ UNKNOWN = 99                     # node.py: "I know of no hazard"
 # ---- hardware (Bridge) -----------------------------------------------------
 def read_sensor():
     """{"temp": C, "hum": %} straight from the MCU."""
-    return {"temp": float(Bridge.call("read_temp")),
+    return {"temp": float(Bridge.call("read_temp")) + TEMP_OFFSET,
             "hum": float(Bridge.call("read_hum"))}
 
 
@@ -92,6 +100,8 @@ if _new:
     _w.writerow(["time", "temp", "hum"])
 _t0 = time.time()
 print("recording to", RECORD, flush=True)
+if TEMP_OFFSET:
+    print("temperature offset %+.2f C (TEMP_OFFSET)" % TEMP_OFFSET, flush=True)
 
 
 # ---- the node on the board host --------------------------------------------
