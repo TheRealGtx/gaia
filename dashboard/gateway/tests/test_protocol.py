@@ -63,11 +63,19 @@ class UdpProtocolTests(unittest.TestCase):
 
     def test_manifest_maps_exactly_the_running_physical_nodes(self):
         manifest = load_node_manifest(Path(__file__).parents[1] / "node_manifest.json")
-        self.assertEqual(set(manifest.nodes), {1, 2, 3})
-        self.assertEqual([manifest.nodes[node_id].sensor_id for node_id in (1, 2, 3)],
-                         ["A-01", "A-02", "A-03"])
-        # the boards are a line: 1 - 2 - 3, which is what NEIGHBORS says on each
+        self.assertEqual(set(manifest.nodes), {1, 2, 3, 4})
+        self.assertEqual([manifest.nodes[node_id].sensor_id for node_id in (1, 2, 3, 4)],
+                         ["A-01", "A-02", "A-03", "A-04"])
+        # the boards are a line: 1 - 2 - 3 - 4, which is what NEIGHBORS says on each
         self.assertEqual(manifest.nodes[2].neighbours, (1, 3))
+        self.assertEqual(manifest.nodes[3].neighbours, (2, 4))
+        # a link goes both ways, or the graph shows an edge the nodes do not use
+        for node_id, node in manifest.nodes.items():
+            for other in node.neighbours:
+                self.assertIn(node_id, manifest.nodes[other].neighbours, (node_id, other))
+        # no two boards drawn on the same spot
+        positions = [node.position for node in manifest.nodes.values()]
+        self.assertEqual(len(positions), len(set(positions)))
 
     def test_manifest_rejects_duplicate_sensor_ids(self):
         with tempfile.TemporaryDirectory() as directory:

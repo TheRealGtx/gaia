@@ -5,6 +5,6 @@ import type { EnvironmentId } from "../domain/types.ts";
 // packet whose id is not in the JSON, and the dashboard ignores a sensor that
 // is not in this array, so a new board has to be added in BOTH places.
 export const LIVE_SENSOR_IDS: Record<EnvironmentId, readonly string[]> = {
-  "building-a": ["A-01", "A-02", "A-03"],
+  "building-a": ["A-01", "A-02", "A-03", "A-04"],
   "forest-north": [],
 };

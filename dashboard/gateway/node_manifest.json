@@ -37,7 +37,21 @@
         7
       ],
       "neighbours": [
-        2
+        2,
+        4
+      ]
+    },
+    "4": {
+      "sensor_id": "A-04",
+      "environment_id": "building-a",
+      "name": "Storage Room",
+      "position": [
+        -12,
+        1.15,
+        -7
+      ],
+      "neighbours": [
+        3
       ]
     }
   }

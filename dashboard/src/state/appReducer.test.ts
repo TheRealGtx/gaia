@@ -2,6 +2,7 @@ import assert from "node:assert/strict";
 import { describe, it } from "node:test";
 import { applySimulationAction } from "../simulation/engine.ts";
 import { appReducer, createInitialAppState } from "./appReducer.ts";
+import { LIVE_SENSOR_IDS } from "../live/liveManifest.ts";
 
 describe("application state", () => {
   it("opens Forest North with its own sensor and route origin selected", () => {
@@ -49,7 +50,8 @@ describe("application state", () => {
 
     assert.equal(disconnected.mode, "live");
     assert.equal(disconnected.globalConnection, "disconnected");
-    assert.deepEqual(disconnected.environments["building-a"].sensors.map((sensor) => sensor.id), ["A-01", "A-02", "A-03"]);
+    // exactly the physical boards of the live manifest, however many there are
+    assert.deepEqual(disconnected.environments["building-a"].sensors.map((sensor) => sensor.id).sort(), [...LIVE_SENSOR_IDS["building-a"]].sort());
   });
 
   it("clears simulated evidence when entering live mode and live evidence when returning", () => {
