@@ -22,7 +22,13 @@ Gaia was built in about 24 hours at **Junction Finland 2026** (14–15 November 
 - **The submission is frozen** under the tag [`junction-2026`](../../tree/junction-2026): that is exactly what the team handed in.
 - **This repository** continues from it. It was copied with its full history from the team repository (`chuqi-gogo/gaia`) and is now maintained by Giuliano.
 
-<!-- Demo video and the public (simulation-only) dashboard link go here once published. -->
+| | |
+| --- | --- |
+| **Demo video** | [youtube.com/watch?v=HwR2xd23IOk](https://www.youtube.com/watch?v=HwR2xd23IOk) |
+| **Dashboard, online** | [gaia-dashboard-rose.vercel.app](https://gaia-dashboard-rose.vercel.app/): the simulation (building and forest digital twins); the live view of the boards needs the hardware and runs locally |
+| **Presentation** | [Slides on Canva](https://canva.link/8sxarm6b3izcspb) |
+
+[![Gaia demo video](https://img.youtube.com/vi/HwR2xd23IOk/hqdefault.jpg)](https://www.youtube.com/watch?v=HwR2xd23IOk)
 
 ### Where it stands
 
@@ -458,4 +464,4 @@ Gaia was developed at Junction Finland 2026 by:
 
 ## Presentation material
 
-The repository includes a presentation-ready narrative, slide outline, three-minute video storyboard, demo sequence, verified metrics, and wording to avoid overclaiming in [`docs/HACKATHON_PRESENTATION.md`](docs/HACKATHON_PRESENTATION.md).
+The slides shown at the event are [on Canva](https://canva.link/8sxarm6b3izcspb) and the demo video is [on YouTube](https://www.youtube.com/watch?v=HwR2xd23IOk). The repository includes a presentation-ready narrative, slide outline, three-minute video storyboard, demo sequence, verified metrics, and wording to avoid overclaiming in [`docs/HACKATHON_PRESENTATION.md`](docs/HACKATHON_PRESENTATION.md).
