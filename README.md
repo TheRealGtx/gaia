@@ -15,6 +15,46 @@
 > [!IMPORTANT]
 > Gaia is an environmental technology platform. The current hackathon demonstrator uses Arduino UNO Q boards, temperature and humidity sensing, thermal-anomaly detection, and emergency guidance to prove the architecture. Fire is one reference use case, not the boundary of the project.
 
+## A hackathon project
+
+Gaia was built in about 24 hours at **Junction Finland 2026** (14–15 November 2026) by a team of three: Chuqi, Giuliano and Pietro (see [Team](#team)). It is a working prototype, not a product: it runs on real hardware, and what is listed as working below was verified on it, but it was designed, wired and debugged in one night.
+
+- **The submission is frozen** under the tag [`junction-2026`](../../tree/junction-2026): that is exactly what the team handed in.
+- **This repository** continues from it. It was copied with its full history from the team repository (`chuqi-gogo/gaia`) and is now maintained by Giuliano.
+
+<!-- Demo video and the public (simulation-only) dashboard link go here once published. -->
+
+### Where it stands
+
+**Working, verified on the hardware during the event**
+
+- Three Arduino UNO Q boards (tested with a fourth) on the laptop's Wi-Fi hotspot, each running the node and the sensor app as systemd services: they start at power-on and restart by themselves.
+- On every board: anomaly detection on the real Modulino temperature, the hazard gradient, the consensus alert, the escape direction, and the LED matrix arrows. Unplug a board and the field reorganizes; plug it back and it rejoins.
+- Federated statistics: neighbours share only `mu`, `sigma` and `n`, every 15 seconds.
+- The dashboard's **Live field** page draws the physical network as it reports itself; closing the dashboard does not stop the boards.
+- Gemma 3 1B runs on the boards through Ollama and rewrites a deterministic situation report for people; the report never depends on it.
+
+**Built, but not verified end to end**
+
+- GaiaMesh, the ad-hoc network with no access point ([`network/README.md`](network/README.md)): the boards and a Linux laptop support it and the scripts are written, but the full switch was not run before the deadline.
+- A simulation-only build of the dashboard for public hosting (`NEXT_PUBLIC_GAIA_LIVE=off`).
+
+**Not done, on purpose or for lack of time**
+
+- The model reads temperature only and was calibrated on one short indoor recording: it is a demonstrator, not a wildfire detector.
+- No authentication or encryption on the network; trusted local network only.
+- Routes and escape directions are prototype decision support, not certified guidance.
+- The multi-domain profile system (CO₂, soil moisture, …) is designed in the docs, not implemented.
+
+The detailed list is in [Known prototype limits](#known-prototype-limits). Every gap, with its priority and a concrete fix, is in [`docs/IMPLEMENTATION_GAP_ANALYSIS.md`](docs/IMPLEMENTATION_GAP_ANALYSIS.md): all P0 items (correctness and safety boundaries) are closed.
+
+### What comes next
+
+1. Show the communication savings of federated statistics in the dashboard (gap analysis P1.3).
+2. Run GaiaMesh end to end, so the demo needs nothing but the boards.
+3. A second environmental profile (CO₂ or soil moisture) to prove the platform is not fire-specific.
+4. Device identity and signed heartbeats before any deployment outside a trusted network.
+
 ## Why Gaia exists
 
 Environmental monitoring happens in places where connectivity, energy, and centralized infrastructure cannot always be assumed: farms, forests, protected areas, buildings, industrial sites, waterways, and remote communities. A centralized platform also creates delay and a single dependency between a physical event and the local response.
@@ -108,7 +148,9 @@ Closing steps 7–9 does not stop steps 1–6.
 | Consensus | Implemented | Threshold and hysteresis; default requires one agreeing neighbour |
 | Self-healing | Implemented | Four-second neighbour timeout and automatic rejoin |
 | Federated statistics | Implemented prototype | Full `mu`/`sigma`/`n` tuple exchanged every 15 seconds and pooled by sample count |
-| Live dashboard | Implemented | Three manifest nodes mapped to `A-01`–`A-03` in `building-a` |
+| Live dashboard | Implemented | Manifest nodes mapped to `A-01`–`A-04` in `building-a`; the Live field page draws the physical network |
+| Public dashboard build | Implemented | `NEXT_PUBLIC_GAIA_LIVE=off` builds a simulation-only version with no Live mode, for hosting |
+| Ad-hoc network (GaiaMesh) | Scripts ready, not verified | `network/board_mode.sh` and `network/pc_join.sh`; needs a Linux laptop (IBSS) |
 | Dashboard simulation | Implemented | 44-sensor building and 36-sensor forest, failures, hazards, obstructions, and routes |
 | Gemma report | Optional | Local Ollama rewrite with deterministic fallback and multi-host failover |
 | Live forest nodes | Not configured | `forest-north` is currently simulation-only |
@@ -346,7 +388,6 @@ The detailed target architecture and missing refactors are documented in [`docs/
 | [`docs/IMPLEMENTATION_GAP_ANALYSIS.md`](docs/IMPLEMENTATION_GAP_ANALYSIS.md) | Prioritized audit of missing, incorrect, promised, and production-readiness work |
 | [`docs/HACKATHON_PRESENTATION.md`](docs/HACKATHON_PRESENTATION.md) | Slide structure, three-minute demo/video storyboard, claims, and Q&A material |
 | [`network/`](network/) | Switching the boards between the laptop's hotspot and GaiaMesh, an ad-hoc network with no access point |
-| [`video/`](video/) | Narration, subtitles and timeline for the demo video (`node video/build.mjs`, macOS) |
 | [`START.md`](START.md) | Bringing the system up, the demo step by step, and troubleshooting |
 | [`HANDOFF-linux.md`](HANDOFF-linux.md) | Moving the demo to GaiaMesh with the laptop on Linux |
 | [`Plan.md`](Plan.md) | The hackathon delivery plan for Sunday |
@@ -409,7 +450,7 @@ For the technical boundaries see [`docs/ARCHITECTURE.md`](docs/ARCHITECTURE.md).
 
 ## Team
 
-Gaia was developed for an Arduino/Junction hackathon by:
+Gaia was developed at Junction Finland 2026 by:
 
 - **Giuliano** — aggregate computing, distributed node behaviour, networking, and diagnostics;
 - **Chuqi** — edge anomaly model, calibration, federated statistics, hardware sensing, and Gemma reporting;
