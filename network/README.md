@@ -31,7 +31,7 @@ git push
 Everything that needs internet happens now.
 
 ```bash
-git clone https://github.com/chuqi-gogo/gaia ~/gaia     # first time only
+git clone https://github.com/TheRealGtx/gaia ~/gaia     # first time only
 ```
 
 ```bash

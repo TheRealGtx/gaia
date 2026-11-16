@@ -25,7 +25,7 @@ Saturday 14/11 at night, from the Windows session that built most of this.
 - **Dashboard**: `dashboard/`, Next.js on :3000 plus a Python gateway on :8000
   that listens to the boards on UDP :5005. The **Live field** page is the
   network graph used for the demo.
-- Everything is on GitHub: chuqi-gogo/gaia, branch main.
+- Everything is on GitHub: TheRealGtx/gaia, branch main.
 
 ## Why GaiaMesh
 
@@ -51,7 +51,7 @@ The same steps as a plain command checklist, with a fourth board and a
 no internet, because it has one radio, so do this first:
 
 ```bash
-cd ~/gaia && git pull            # or git clone https://github.com/chuqi-gogo/gaia
+cd ~/gaia && git pull            # or git clone https://github.com/TheRealGtx/gaia
 cd dashboard && npm install
 python3 -m venv .venv && .venv/bin/pip install -r gateway/requirements.txt
 ```

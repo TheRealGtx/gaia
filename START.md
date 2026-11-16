@@ -30,7 +30,7 @@ uses SSH and fails on the password): open
 address is in the hotspot's device list):
 
 ```bash
-git clone https://github.com/chuqi-gogo/gaia ~/gaia
+git clone https://github.com/TheRealGtx/gaia ~/gaia
 ```
 
 **d. The Bridge for the board's Python:**
